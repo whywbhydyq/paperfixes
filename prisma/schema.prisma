@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String?  @unique
+  passwordHash String?
+  wechatOpenId String?  @unique
+  wechatName   String?
+  wechatAvatar String?
+  role         String   @default("user")
+  plan         String   @default("free")
+  quota        Int      @default(5)
+  totalUsed    Int      @default(0)
+  createdAt    DateTime @default(now())
+  jobs         Job[]
+}
+
+model Job {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputText  String
+  outputText String?
+  status     String    @default("PENDING")
+  inputLen   Int?
+  outputLen  Int?
+  error      String?
+  createdAt  DateTime  @default(now())
+  doneAt     DateTime?
+}
+
+model Config {
+  key   String @id
+  value String
+}
