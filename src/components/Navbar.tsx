@@ -79,7 +79,7 @@ export default function Navbar() {
                     <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
                     <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border bg-white py-1 shadow-xl">
                       <div className="border-b px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 truncate">{user?.email || user?.wechatName || '用户'}</div>
+                        <div className="text-sm font-medium text-gray-900 truncate">{user?.email || user?.wechatName || (user?.phone ? '手机用户' + user.phone.slice(-4) : '用户')}</div>
                         <div className="text-xs text-gray-400">已使用 {user?.totalUsed ?? 0} 次</div>
                       </div>
                       {isAdmin && (

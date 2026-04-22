@@ -128,7 +128,11 @@ export default function DashboardPage() {
     );
   }
 
-  const displayName = user?.email || user?.phone || user?.wechatName || '用户';
+  const rawPhone = user?.phone;
+  const displayName = user?.email 
+    || user?.wechatName 
+    || (rawPhone ? '手机用户' + rawPhone.slice(-4) : null)
+    || '用户';
   const planName = user?.plan === 'pro' ? '专业套餐' : user?.plan === 'basic' ? '基础套餐' : '免费套餐';
 
   return (
