@@ -24,12 +24,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true, email: true, wechatName: true, role: true, plan: true,
-        quota: true, totalUsed: true, createdAt: true,
+    select: {
+      id: true, email: true, wechatName: true, role: true, plan: true,
+      quota: true, totalUsed: true, createdAt: true,
+      jobs: {
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true, status: true, inputLen: true, outputLen: true,
+          createdAt: true, doneAt: true,
+        },
       },
-    });
-    return res.status(200).json({ users });
+    },
+  });
+  return res.status(200).json({ users });
   }
 
   if (req.method === 'PUT') {
