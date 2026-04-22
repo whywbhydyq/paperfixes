@@ -20,21 +20,13 @@ async function request<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: '网络错误' }));
     throw new Error(data.error || `请求失败 (${res.status})`);
   }
-
   return res.json();
 }
-
-// ============ 认证 API ============
 
 export async function registerWithEmail(email: string, password: string) {
   return request<{ user: any; token: string }>('/api/auth/register', {
@@ -50,7 +42,19 @@ export async function loginWithEmail(email: string, password: string) {
   });
 }
 
-// ============ 微信登录 API ============
+export async function sendSmsCode(phone: string) {
+  return request<{ success: boolean; message: string; devCode?: string }>(
+    '/api/auth/sms/send',
+    { method: 'POST', body: JSON.stringify({ phone }) }
+  );
+}
+
+export async function verifySmsCode(phone: string, code: string) {
+  return request<{ user: any; token: string }>(
+    '/api/auth/sms/verify',
+    { method: 'POST', body: JSON.stringify({ phone, code }) }
+  );
+}
 
 export async function getWechatQR() {
   return request<{ qrUrl: string; scene: string }>('/api/auth/wechat/qrcode');
@@ -61,8 +65,6 @@ export async function pollWechatScan(scene: string) {
     `/api/auth/wechat-poll/${scene}`
   );
 }
-
-// ============ 任务提交 API ============
 
 export interface SubmitResponse {
   jobId: string;
@@ -79,8 +81,6 @@ export async function submitRewriteJob(
   }, token);
 }
 
-// ============ 任务状态轮询 API ============
-
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
 
 export interface JobStatusResponse {
@@ -96,14 +96,8 @@ export async function pollJobStatus(
   jobId: string,
   token: string | null
 ): Promise<JobStatusResponse> {
-  return request<JobStatusResponse>(
-    `/api/rewrite/status/${jobId}`,
-    {},
-    token
-  );
+  return request<JobStatusResponse>(`/api/rewrite/status/${jobId}`, {}, token);
 }
-
-// ============ 用户额度 API ============
 
 export interface QuotaResponse {
   quota: number;
@@ -112,4 +106,17 @@ export interface QuotaResponse {
 
 export async function fetchQuota(token: string | null): Promise<QuotaResponse> {
   return request<QuotaResponse>('/api/user/quota', {}, token);
+}
+
+export interface TopupRecord {
+  id: string;
+  amount: number;
+  price: number;
+  planKey: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
+  return request<{ topups: TopupRecord[] }>('/api/user/topups', {}, token);
 }

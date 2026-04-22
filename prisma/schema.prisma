@@ -10,6 +10,7 @@ datasource db {
 model User {
   id           String   @id @default(uuid())
   email        String?  @unique
+  phone        String?  @unique
   passwordHash String?
   wechatOpenId String?  @unique
   wechatName   String?
@@ -20,6 +21,7 @@ model User {
   totalUsed    Int      @default(0)
   createdAt    DateTime @default(now())
   jobs         Job[]
+  topups       Topup[]
 }
 
 model Job {
@@ -36,7 +38,27 @@ model Job {
   doneAt     DateTime?
 }
 
+model Topup {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int      // 充值次数
+  price     Float    // 支付金额（元）
+  planKey   String   // 套餐key
+  note      String?  // 备注（手动充值时管理员填写）
+  createdAt DateTime @default(now())
+}
+
 model Config {
   key   String @id
   value String
+}
+
+model SmsCode {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

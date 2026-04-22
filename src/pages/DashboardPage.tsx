@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { User, Zap, FileText, Clock, LogOut, ArrowRight, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import {
+  User, Zap, FileText, Clock, LogOut, ArrowRight,
+  ChevronDown, ChevronUp, Copy, Check, Receipt, Key, Eye, EyeOff, Loader2,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { fetchQuota } from '../lib/api';
+import { fetchQuota, fetchTopups, type TopupRecord } from '../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -17,18 +20,39 @@ interface JobRecord {
   doneAt: string | null;
 }
 
+type ActiveTab = 'history' | 'topups' | 'password';
+
 export default function DashboardPage() {
   const { user, token, isLoggedIn, logout, openLoginModal, updateQuota } = useAuthStore();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('history');
+
+  // 充值记录
+  const [topups, setTopups] = useState<TopupRecord[]>([]);
+  const [topupsLoading, setTopupsLoading] = useState(false);
+
+  // 修改密码
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState('');
+  const [pwdError, setPwdError] = useState('');
 
   useEffect(() => {
     if (!isLoggedIn || !token) return;
     fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});
     loadJobs();
   }, [isLoggedIn, token]);
+
+  useEffect(() => {
+    if (activeTab === 'topups' && token) loadTopups();
+  }, [activeTab, token]);
 
   const loadJobs = async () => {
     if (!token) return;
@@ -45,11 +69,48 @@ export default function DashboardPage() {
     setJobsLoading(false);
   };
 
+  const loadTopups = async () => {
+    if (!token) return;
+    setTopupsLoading(true);
+    try {
+      const data = await fetchTopups(token);
+      setTopups(data.topups || []);
+    } catch {}
+    setTopupsLoading(false);
+  };
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     });
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdMsg('');
+    if (newPassword.length < 6) { setPwdError('新密码至少6位'); return; }
+    if (newPassword !== confirmPassword) { setPwdError('两次密码不一致'); return; }
+    setPwdLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/user/password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '修改失败');
+      setPwdMsg('密码修改成功');
+      setOldPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err: unknown) {
+      setPwdError(err instanceof Error ? err.message : '修改失败');
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -58,33 +119,43 @@ export default function DashboardPage() {
         <div className="text-center">
           <User size={48} className="mx-auto text-gray-300" />
           <p className="mt-4 text-gray-500">请先登录查看个人中心</p>
-          <button onClick={openLoginModal} className="mt-4 rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700">登录</button>
+          <button onClick={openLoginModal}
+            className="mt-4 rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-700">
+            登录
+          </button>
         </div>
       </div>
     );
   }
+
+  const displayName = user?.email || user?.phone || user?.wechatName || '用户';
+  const planName = user?.plan === 'pro' ? '专业套餐' : user?.plan === 'basic' ? '基础套餐' : '免费套餐';
 
   return (
     <div className="min-h-screen bg-gray-50/50">
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">个人中心</h1>
 
+        {/* 用户信息卡 */}
         <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-primary-600">
               <User size={24} />
             </div>
             <div>
-              <div className="text-lg font-semibold text-gray-900">{user?.email || user?.wechatName || '用户'}</div>
-              <div className="text-sm text-gray-400">{user?.plan === 'pro' ? '专业套餐' : user?.plan === 'basic' ? '基础套餐' : '免费套餐'}</div>
+              <div className="text-lg font-semibold text-gray-900">{displayName}</div>
+              <div className="text-sm text-gray-400">{planName}</div>
             </div>
           </div>
         </div>
 
+        {/* 统计卡片 */}
         <div className="mt-6 grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600"><Zap size={18} /></div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <Zap size={18} />
+              </div>
               <div>
                 <div className="text-2xl font-bold text-gray-900">{user?.quota ?? 0}</div>
                 <div className="text-xs text-gray-400">剩余额度</div>
@@ -93,7 +164,9 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-green-600"><FileText size={18} /></div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-green-600">
+                <FileText size={18} />
+              </div>
               <div>
                 <div className="text-2xl font-bold text-gray-900">{user?.totalUsed ?? 0}</div>
                 <div className="text-xs text-gray-400">累计改写次数</div>
@@ -102,97 +175,247 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 快捷操作 */}
         <div className="mt-6 space-y-3">
           <Link to="/" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm transition-all hover:border-primary-100 hover:shadow-md">
-            <div className="flex items-center gap-3"><FileText size={18} className="text-primary-600" /><span className="font-medium text-gray-900">开始改写</span></div>
+            <div className="flex items-center gap-3">
+              <FileText size={18} className="text-primary-600" />
+              <span className="font-medium text-gray-900">开始改写</span>
+            </div>
             <ArrowRight size={16} className="text-gray-400" />
           </Link>
           <Link to="/pricing" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm transition-all hover:border-amber-100 hover:shadow-md">
-            <div className="flex items-center gap-3"><Zap size={18} className="text-amber-600" /><span className="font-medium text-gray-900">购买额度</span></div>
+            <div className="flex items-center gap-3">
+              <Zap size={18} className="text-amber-600" />
+              <span className="font-medium text-gray-900">购买额度</span>
+            </div>
             <ArrowRight size={16} className="text-gray-400" />
           </Link>
           <button onClick={logout} className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm transition-all hover:border-red-100 hover:shadow-md">
-            <div className="flex items-center gap-3"><LogOut size={18} className="text-red-500" /><span className="font-medium text-gray-900">退出登录</span></div>
+            <div className="flex items-center gap-3">
+              <LogOut size={18} className="text-red-500" />
+              <span className="font-medium text-gray-900">退出登录</span>
+            </div>
           </button>
         </div>
 
+        {/* Tab 切换 */}
         <div className="mt-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">改写历史</h2>
-            <button onClick={loadJobs} className="text-xs text-primary-600 hover:text-primary-700">刷新</button>
+          <div className="flex gap-2 border-b border-gray-200">
+            {([
+              { key: 'history', label: '改写历史', icon: <Clock size={14} /> },
+              { key: 'topups', label: '充值记录', icon: <Receipt size={14} /> },
+              { key: 'password', label: '修改密码', icon: <Key size={14} /> },
+            ] as const).map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  activeTab === key
+                    ? 'border-primary-600 text-primary-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {icon}{label}
+              </button>
+            ))}
           </div>
-          {jobsLoading ? (
-            <div className="text-center py-12 text-gray-400">加载中...</div>
-          ) : jobs.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 rounded-2xl border border-dashed border-gray-200">
-              <Clock size={32} className="mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">暂无改写记录</p>
-              <Link to="/" className="mt-3 inline-block text-sm text-primary-600 hover:underline">去改写一篇</Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <div key={job.id} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div
-                    className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
-                  >
-                    <div className="flex-1 min-w-0 mr-3">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {job.inputText.slice(0, 60)}{job.inputText.length > 60 ? '...' : ''}
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-400 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          {new Date(job.createdAt).toLocaleString('zh-CN')}
-                        </span>
-                        {job.inputLen && <span>原文 {job.inputLen} 字</span>}
-                        {job.outputLen && <span>结果 {job.outputLen} 字</span>}
-                        <span className={`px-2 py-0.5 rounded-full font-medium ${
-                          job.status === 'DONE' ? 'bg-green-100 text-green-700'
-                          : job.status === 'FAILED' ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {job.status === 'DONE' ? '完成' : job.status === 'FAILED' ? '失败' : '处理中'}
-                        </span>
-                      </div>
-                    </div>
-                    {expandedJob === job.id
-                      ? <ChevronUp size={16} className="text-gray-400 shrink-0" />
-                      : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
-                  </div>
-                  {expandedJob === job.id && (
-                    <div className="border-t border-gray-100 p-5">
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-semibold text-gray-500">原文</span>
+
+          {/* 改写历史 */}
+          {activeTab === 'history' && (
+            <div className="mt-4">
+              <div className="flex justify-end mb-3">
+                <button onClick={loadJobs} className="text-xs text-primary-600 hover:text-primary-700">刷新</button>
+              </div>
+              {jobsLoading ? (
+                <div className="text-center py-12 text-gray-400">加载中...</div>
+              ) : jobs.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 rounded-2xl border border-dashed border-gray-200">
+                  <Clock size={32} className="mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm">暂无改写记录</p>
+                  <Link to="/" className="mt-3 inline-block text-sm text-primary-600 hover:underline">去改写一篇</Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                      <div
+                        className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
+                      >
+                        <div className="flex-1 min-w-0 mr-3">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {job.inputText.slice(0, 60)}{job.inputText.length > 60 ? '...' : ''}
                           </div>
-                          <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-xl p-3 max-h-52 overflow-y-auto custom-scrollbar">
-                            {job.inputText}
+                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock size={11} />
+                              {new Date(job.createdAt).toLocaleString('zh-CN')}
+                            </span>
+                            {job.inputLen && <span>原文 {job.inputLen} 字</span>}
+                            {job.outputLen && <span>结果 {job.outputLen} 字</span>}
+                            <span className={`px-2 py-0.5 rounded-full font-medium ${
+                              job.status === 'DONE' ? 'bg-green-100 text-green-700'
+                              : job.status === 'FAILED' ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {job.status === 'DONE' ? '完成' : job.status === 'FAILED' ? '失败' : '处理中'}
+                            </span>
                           </div>
                         </div>
-                        {job.outputText && (
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-semibold text-gray-500">改写结果</span>
-                              <button
-                                onClick={() => handleCopy(job.outputText!, job.id)}
-                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600"
-                              >
-                                {copiedId === job.id ? <><Check size={12} className="text-green-500" />已复制</> : <><Copy size={12} />复制</>}
-                              </button>
-                            </div>
-                            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-green-50 rounded-xl p-3 max-h-52 overflow-y-auto custom-scrollbar">
-                              {job.outputText}
-                            </div>
-                          </div>
-                        )}
+                        {expandedJob === job.id
+                          ? <ChevronUp size={16} className="text-gray-400 shrink-0" />
+                          : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
                       </div>
+                      {expandedJob === job.id && (
+                        <div className="border-t border-gray-100 p-5">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-gray-500">原文</span>
+                              </div>
+                              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-xl p-3 max-h-52 overflow-y-auto custom-scrollbar">
+                                {job.inputText}
+                              </div>
+                            </div>
+                            {job.outputText && (
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-semibold text-gray-500">改写结果</span>
+                                  <button onClick={() => handleCopy(job.outputText!, job.id)}
+                                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600">
+                                    {copiedId === job.id
+                                      ? <><Check size={12} className="text-green-500" />已复制</>
+                                      : <><Copy size={12} />复制</>}
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-green-50 rounded-xl p-3 max-h-52 overflow-y-auto custom-scrollbar">
+                                  {job.outputText}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
+            </div>
+          )}
+
+          {/* 充值记录 */}
+          {activeTab === 'topups' && (
+            <div className="mt-4">
+              {topupsLoading ? (
+                <div className="text-center py-12 text-gray-400">加载中...</div>
+              ) : topups.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 rounded-2xl border border-dashed border-gray-200">
+                  <Receipt size={32} className="mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm">暂无充值记录</p>
+                  <Link to="/pricing" className="mt-3 inline-block text-sm text-primary-600 hover:underline">去购买额度</Link>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-500">
+                      <tr>
+                        <th className="px-5 py-3 text-left font-medium">时间</th>
+                        <th className="px-5 py-3 text-left font-medium">套餐</th>
+                        <th className="px-5 py-3 text-center font-medium">增加次数</th>
+                        <th className="px-5 py-3 text-center font-medium">金额</th>
+                        <th className="px-5 py-3 text-left font-medium">备注</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {topups.map((t) => (
+                        <tr key={t.id} className="hover:bg-gray-50">
+                          <td className="px-5 py-3 text-gray-500 text-xs">
+                            {new Date(t.createdAt).toLocaleString('zh-CN')}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700">
+                              {t.planKey === 'free' ? '免费' : t.planKey === 'basic' ? '基础' : t.planKey === 'pro' ? '专业' : t.planKey}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center font-semibold text-green-600">+{t.amount}</td>
+                          <td className="px-5 py-3 text-center text-gray-700">
+                            {t.price === 0 ? '免费' : `¥${t.price}`}
+                          </td>
+                          <td className="px-5 py-3 text-gray-400 text-xs">{t.note || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 修改密码 */}
+          {activeTab === 'password' && (
+            <div className="mt-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                {user?.phone && !user?.email && (
+                  <div className="mb-4 rounded-lg bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700">
+                    您使用手机号登录，可在此设置密码以便后续邮箱登录
+                  </div>
+                )}
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">当前密码</label>
+                    <div className="relative">
+                      <input
+                        type={showOld ? 'text' : 'password'}
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        placeholder="请输入当前密码"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-11 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                      />
+                      <button type="button" onClick={() => setShowOld(!showOld)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showOld ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">新密码</label>
+                    <div className="relative">
+                      <input
+                        type={showNew ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="至少6位字符"
+                        minLength={6}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-11 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                      />
+                      <button type="button" onClick={() => setShowNew(!showNew)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">确认新密码</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="再次输入新密码"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                    />
+                  </div>
+                  {pwdError && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{pwdError}</div>}
+                  {pwdMsg && <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{pwdMsg}</div>}
+                  <button
+                    type="submit"
+                    disabled={pwdLoading || !oldPassword || !newPassword || !confirmPassword}
+                    className="flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {pwdLoading ? <><Loader2 size={16} className="animate-spin" />修改中...</> : '确认修改'}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>

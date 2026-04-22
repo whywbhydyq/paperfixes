@@ -211,7 +211,9 @@ export default function ReducePage() {
           ) : null}
         </div>
 
-
+        {phase === 'done' && (
+          
+        )}
       </div>
     </div>
   );
