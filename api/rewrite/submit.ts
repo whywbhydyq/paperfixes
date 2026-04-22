@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import prisma from '../_lib/prisma';
-import { getUserFromRequest } from '../_lib/auth';
+import prisma from '../_lib/prisma.js';
+import { getUserFromRequest } from '../_lib/auth.js';
 
 async function getPlanLimits(plan: string): Promise<{ minChars: number; maxChars: number }> {
   try {

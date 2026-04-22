@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import prisma from '../../_lib/prisma';
-import { getUserFromRequest } from '../../_lib/auth';
-import { callRewriteAI } from '../../_lib/ai';
+import prisma from '../../_lib/prisma.js';
+import { getUserFromRequest } from '../../_lib/auth.js';
+import { callRewriteAI } from '../../_lib/ai.js';
 
 // 最大函数执行时间（秒）。Vercel Pro 支持最高 300s，免费版最高 60s
 export const config = { maxDuration: 60 };

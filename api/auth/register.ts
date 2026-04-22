@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import prisma from '../_lib/prisma';
-import { hashPassword, signToken } from '../_lib/auth';
-import { ADMIN_EMAIL } from '../_lib/constants';
+import prisma from '../_lib/prisma.js';
+import { hashPassword, signToken } from '../_lib/auth.js';
+import { ADMIN_EMAIL } from '../_lib/constants.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
