@@ -131,7 +131,7 @@ async function callOpenRouterAPI(
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': siteUrl,
-        'X-Title': '学术改写引擎',   // 在 OpenRouter 后台显示的应用名
+        'X-Title': 'Academic Rewrite Engine',   // 在 OpenRouter 后台显示的应用名
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
