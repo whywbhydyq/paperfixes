@@ -1,4 +1,4 @@
-import { FileText, ShieldCheck } from 'lucide-react';
+﻿content = """import { FileText, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Footer() {
@@ -59,3 +59,8 @@ export default function Footer() {
     </footer>
   );
 }
+"""
+
+with open('src/components/Footer.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("✓ Footer 完成")

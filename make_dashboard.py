@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿content = """import { useEffect, useState } from 'react';
 import { User, Zap, FileText, Clock, LogOut, ArrowRight, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
@@ -200,3 +200,8 @@ export default function DashboardPage() {
     </div>
   );
 }
+"""
+
+with open('src/pages/DashboardPage.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("✓ DashboardPage 完成")

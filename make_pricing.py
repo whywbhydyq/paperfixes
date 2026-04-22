@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿content = """import { useEffect, useState } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -118,3 +118,8 @@ export default function PricingPage() {
     </div>
   );
 }
+"""
+
+with open('src/pages/PricingPage.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("✓ PricingPage 完成")
