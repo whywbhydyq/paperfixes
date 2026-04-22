@@ -58,7 +58,7 @@ export default function DashboardPage() {
     if (!token) return;
     setJobsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/jobs`, {
+      const res = await fetch(`${API_BASE}/api/user?action=jobs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -94,7 +94,7 @@ export default function DashboardPage() {
     if (newPassword !== confirmPassword) { setPwdError('两次密码不一致'); return; }
     setPwdLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/password`, {
+      const res = await fetch(`${API_BASE}/api/user?action=password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

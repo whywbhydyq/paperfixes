@@ -44,15 +44,15 @@ export async function loginWithEmail(email: string, password: string) {
 
 export async function sendSmsCode(phone: string) {
   return request<{ success: boolean; message: string; devCode?: string }>(
-    '/api/auth/sms/send',
-    { method: 'POST', body: JSON.stringify({ phone }) }
+    '/api/auth/sms',
+    { method: 'POST', body: JSON.stringify({ action: 'send', phone }) }
   );
 }
 
 export async function verifySmsCode(phone: string, code: string) {
   return request<{ user: any; token: string }>(
-    '/api/auth/sms/verify',
-    { method: 'POST', body: JSON.stringify({ phone, code }) }
+    '/api/auth/sms',
+    { method: 'POST', body: JSON.stringify({ action: 'verify', phone, code }) }
   );
 }
 
@@ -105,7 +105,7 @@ export interface QuotaResponse {
 }
 
 export async function fetchQuota(token: string | null): Promise<QuotaResponse> {
-  return request<QuotaResponse>('/api/user/quota', {}, token);
+  return request<QuotaResponse>('/api/user?action=quota', {}, token);
 }
 
 export interface TopupRecord {
@@ -118,5 +118,5 @@ export interface TopupRecord {
 }
 
 export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
-  return request<{ topups: TopupRecord[] }>('/api/user/topups', {}, token);
+  return request<{ topups: TopupRecord[] }>('/api/user?action=topups', {}, token);
 }

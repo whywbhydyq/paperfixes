@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
-import { ADMIN_EMAIL, isAdminUser } from '../_lib/constants.js';
+import {  isAdminUser } from '../_lib/constants.js';
 
 const DEFAULT_PLANS = [
   {
