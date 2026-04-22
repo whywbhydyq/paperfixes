@@ -96,8 +96,8 @@ async function callOpenRouterAPI(
   jobId?: string
 ): Promise<{ result: string; stats: AICallStats }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL || 'google/gemini-pro-1.5';
-  const siteUrl = process.env.SITE_URL || 'https://your-domain.vercel.app';
+  const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
+  const siteUrl = process.env.SITE_URL || 'https://react-rewrite-application-architecture-mkd5cflfm.vercel.app/';
 
   if (!apiKey) {
     throw new Error('未配置 OPENROUTER_API_KEY');
