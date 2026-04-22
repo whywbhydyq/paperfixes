@@ -14,8 +14,8 @@ const PLAN_MAX_CHARS: Record<string, number> = {
 };
 
 export default function ReducePage() {
-  const { isLoggedIn, user, token, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob } = useAuthStore();
-  const [text, setText] = useState('');
+  const { isLoggedIn, user, token, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob, inputText: savedText, saveInputText, clearInputText } = useAuthStore();
+  const [text, setText] = useState(savedText || '');
   const [phase, setPhase] = useState<Phase>('input');
   const [jobId, setJobId] = useState('');
   const [error, setError] = useState('');
@@ -42,6 +42,7 @@ export default function ReducePage() {
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
+    saveInputText(e.target.value);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +91,7 @@ export default function ReducePage() {
 
   const handleReset = () => {
     setText(''); setResult(''); setJobId(''); setPhase('input'); setError('');
-    setOutputLen(0); clearActiveJob();
+    setOutputLen(0); clearActiveJob(); clearInputText();
   };
 
   const handleCopyResult = () => {
@@ -200,7 +201,7 @@ export default function ReducePage() {
               </button>
               <div className="mt-3 flex items-start gap-2 px-1 text-xs text-gray-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                <span>免费用户单次 {MIN_CHARS}-{MAX_CHARS} 字 · 改写完成后原文不留存 · 输出字数严格控制</span>
+                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字 · 输出字数严格控制</span>
               </div>
             </>
           ) : phase === 'done' ? (
@@ -211,7 +212,7 @@ export default function ReducePage() {
         </div>
 
         {phase === 'done' && (
-          <p className="mt-3 text-center text-xs text-gray-400">您的原文已在处理完成后彻底清除，不会在任何服务器上留存</p>
+          
         )}
       </div>
     </div>

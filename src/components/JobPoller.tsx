@@ -100,7 +100,7 @@ export default function JobPoller({ jobId, onComplete, onError }: JobPollerProps
         </div>
       </div>
       <p className="text-lg font-semibold text-gray-900">
-        {status === 'PENDING' ? '正在排队中...' : '正在改写中...'}
+        {status === 'PENDING' ? '正在思考中...' : '正在改写中...'}
       </p>
       <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
         <Clock size={14} />

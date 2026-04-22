@@ -26,6 +26,7 @@ interface AuthState {
   isLoggedIn: boolean;
   showLoginModal: boolean;
   activeJob: ActiveJob | null;
+  inputText: string;
   login: (user: User, token: string) => void;
   logout: () => void;
   openLoginModal: () => void;
@@ -33,6 +34,8 @@ interface AuthState {
   updateQuota: (quota: number, totalUsed: number) => void;
   setActiveJob: (job: ActiveJob) => void;
   clearActiveJob: () => void;
+  saveInputText: (text: string) => void;
+  clearInputText: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -43,6 +46,7 @@ export const useAuthStore = create<AuthState>()(
       isLoggedIn: false,
       showLoginModal: false,
       activeJob: null,
+      inputText: '',
       login: (user, token) =>
         set({ user, token, isLoggedIn: true, showLoginModal: false }),
       logout: () =>
@@ -55,6 +59,8 @@ export const useAuthStore = create<AuthState>()(
         })),
       setActiveJob: (job) => set({ activeJob: job }),
       clearActiveJob: () => set({ activeJob: null }),
+      saveInputText: (text) => set({ inputText: text }),
+      clearInputText: () => set({ inputText: '' }),
     }),
     {
       name: 'aigc-auth-storage',
@@ -63,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isLoggedIn: state.isLoggedIn,
         activeJob: state.activeJob,
+        inputText: state.inputText,
       }),
     }
   )
