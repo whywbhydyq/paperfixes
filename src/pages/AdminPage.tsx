@@ -60,7 +60,7 @@ export default function AdminPage() {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/api/admin/users', token);
+      const data = await apiFetch('/api/admin?resource=users', token);
       setUsers(data.users);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -69,7 +69,7 @@ export default function AdminPage() {
   const loadPlans = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/api/admin/config', token);
+      const data = await apiFetch('/api/admin?resource=config', token);
       setPlans(data.plans);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -110,7 +110,7 @@ export default function AdminPage() {
 
   const handleSaveUser = async (userId: string) => {
     try {
-      await apiFetch(`/api/admin/users?id=${userId}`, token, {
+      await apiFetch(`/api/admin?resource=users&id=${userId}`, token, {
         method: 'PUT', body: JSON.stringify(editData),
       });
       setEditingUserId(null);
@@ -126,7 +126,7 @@ export default function AdminPage() {
     if (!topupUserId || topupAmount <= 0) return;
     setTopupLoading(true);
     try {
-      await apiFetch('/api/admin/topup', token, {
+      await apiFetch('/api/admin?resource=topup', token, {
         method: 'POST',
         body: JSON.stringify({
           userId: topupUserId,
@@ -151,7 +151,7 @@ export default function AdminPage() {
 
   const handleSavePlans = async () => {
     try {
-      await apiFetch('/api/admin/config', token, {
+      await apiFetch('/api/admin?resource=config', token, {
         method: 'PUT', body: JSON.stringify({ plans }),
       });
       setSaveMsg('定价配置已保存');

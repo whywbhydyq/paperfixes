@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String?  @unique
-  phone        String?  @unique
-  passwordHash String?
-  wechatOpenId String?  @unique
-  wechatName   String?
-  wechatAvatar String?
-  role         String   @default("user")
-  plan         String   @default("free")
-  quota        Int      @default(5)
-  totalUsed    Int      @default(0)
-  createdAt    DateTime @default(now())
-  jobs         Job[]
-  topups       Topup[]
+  id            String   @id @default(uuid())
+  email         String?  @unique
+  phone         String?  @unique
+  passwordHash  String?
+  wechatOpenId  String?  @unique
+  wechatName    String?
+  wechatAvatar  String?
+  role          String   @default("user")
+  plan          String   @default("free")
+  quota         Int      @default(5)
+  totalUsed     Int      @default(0)
+  createdAt     DateTime @default(now())
+  jobs          Job[]
+  topups        Topup[]
+  orders        Order[]
 }
 
 model Job {
@@ -42,10 +43,10 @@ model Topup {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount    Int      // 充值次数
-  price     Float    // 支付金额（元）
-  planKey   String   // 套餐key
-  note      String?  // 备注（手动充值时管理员填写）
+  amount    Int
+  price     Float
+  planKey   String
+  note      String?
   createdAt DateTime @default(now())
 }
 
@@ -61,4 +62,16 @@ model SmsCode {
   used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model Order {
+  id        String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  planKey   String
+  amount    Float
+  quota     Int
+  status    String    @default("PENDING")
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
 }

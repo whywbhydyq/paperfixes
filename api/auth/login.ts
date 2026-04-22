@@ -9,7 +9,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { email, password } = req.body || {};
-
   if (!email || !password) return res.status(400).json({ error: '邮箱和密码不能为空' });
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -19,11 +18,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!valid) return res.status(401).json({ error: '邮箱或密码错误' });
 
   const token = signToken(user.id);
-
   return res.status(200).json({
     user: {
       id: user.id,
       email: user.email,
+      phone: user.phone,
       wechatName: user.wechatName,
       role: user.role,
       plan: user.plan,

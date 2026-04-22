@@ -120,3 +120,6 @@ export interface TopupRecord {
 export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
   return request<{ topups: TopupRecord[] }>('/api/user?action=topups', {}, token);
 }
+export async function pollPaymentStatus(orderId: string, token: string | null) {
+  return request<{ status: string }>(`/api/payment/create?orderId=${orderId}`, {}, token);
+}

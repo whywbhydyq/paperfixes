@@ -23,7 +23,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/admin/config`)
+    fetch(`${API_BASE}/api/admin?resource=config`)
       .then(r => r.json())
       .then(d => { setPlans(d.plans || []); setLoading(false); })
       .catch(() => setLoading(false));

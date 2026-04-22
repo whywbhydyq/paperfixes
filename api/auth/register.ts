@@ -10,10 +10,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { email, password } = req.body || {};
-
   if (!email || !password) return res.status(400).json({ error: '邮箱和密码不能为空' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
-  if (password.length < 6) return res.status(400).json({ error: '密码至少需要6位字符' });
+  if (password.length < 6) return res.status(400).json({ error: '密码至少需要 6 位字符' });
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return res.status(409).json({ error: '该邮箱已被注册' });
@@ -30,11 +29,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   const token = signToken(user.id);
-
   return res.status(201).json({
     user: {
       id: user.id,
       email: user.email,
+      phone: user.phone,
       wechatName: user.wechatName,
       role: user.role,
       plan: user.plan,
