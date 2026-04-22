@@ -16,6 +16,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/uuid": "^10.0.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^5.7.12",
     "bcryptjs": "^3.0.3",
     "clsx": "2.1.1",
