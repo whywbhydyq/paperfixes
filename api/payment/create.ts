@@ -10,7 +10,7 @@ const PLAN_PRICES: Record<string, { amount: number; quota: number; name: string 
 
 const EPAY_PID = process.env.EPAY_PID || '11177';
 const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
-const EPAY_API = process.env.EPAY_API || 'https://xpay.com';
+const EPAY_API = process.env.EPAY_API || 'https://pay.mzfpay.com';
 
 function buildSign(params: Record<string, string>, key: string): string {
   // 过滤空值和sign/sign_type，按ASCII排序，拼接，追加key，MD5
