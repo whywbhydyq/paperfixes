@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+﻿content = r"""import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { signToken } from '../_lib/auth.js';
 import * as crypto from 'crypto';
@@ -238,3 +238,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(400).json({ error: '缺少 action 参数' });
 }
+"""
+
+with open('api/auth/sms.ts', 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print('OK: api/auth/sms.ts 已重写为阿里云号码认证版本')
