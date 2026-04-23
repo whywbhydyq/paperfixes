@@ -55,7 +55,7 @@ async function aliyunRequest(action: string, bizParams: Record<string, string>):
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
 
-  const res = await fetch('https://dypnsapi.aliyuncs.com/', {
+  const res = await fetch('https://dypns.aliyuncs.com/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
