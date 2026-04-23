@@ -44,7 +44,6 @@ export default function DashboardPage() {
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdError, setPwdError] = useState('');
 
-  const [searchParams] = useSearchParams();
   const tabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
