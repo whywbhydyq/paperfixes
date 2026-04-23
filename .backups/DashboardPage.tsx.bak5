@@ -44,14 +44,6 @@ export default function DashboardPage() {
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdError, setPwdError] = useState('');
 
-  const tabRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchParams.get('tab') && tabRef.current) {
-      tabRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [searchParams]);
-
   useEffect(() => {
     if (!isLoggedIn || !token) return;
     fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});

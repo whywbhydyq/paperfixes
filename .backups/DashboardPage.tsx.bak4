@@ -1,4 +1,4 @@
-import {  useEffect, useState , useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User, Zap, FileText, Clock, LogOut, ArrowRight,
   ChevronDown, ChevronUp, Copy, Check, Receipt, Key, Eye, EyeOff, Loader2,
@@ -43,14 +43,6 @@ export default function DashboardPage() {
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdError, setPwdError] = useState('');
-
-  const tabRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (searchParams.get('tab') && tabRef.current) {
-      tabRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     if (!isLoggedIn || !token) return;

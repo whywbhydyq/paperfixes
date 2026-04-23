@@ -3,25 +3,10 @@ import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import crypto from 'crypto';
 
-// 兜底价格（数据库配置优先）
-const FALLBACK_PRICES: Record<string, { amount: number; quota: number; name: string }> = {
+const PLAN_PRICES: Record<string, { amount: number; quota: number; name: string }> = {
   basic: { amount: 29, quota: 50, name: '基础套餐' },
   pro: { amount: 99, quota: 300, name: '专业套餐' },
 };
-
-async function getPlanPrice(planKey: string): Promise<{ amount: number; quota: number; name: string } | null> {
-  try {
-    const config = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });
-    if (config) {
-      const plans = JSON.parse(config.value);
-      const found = plans.find((p: { planKey: string; price: number; quota: number; name: string; active: boolean }) => p.planKey === planKey && p.active);
-      if (found) return { amount: found.price, quota: found.quota, name: found.name };
-    }
-  } catch (e) {
-    console.error('[getPlanPrice] 读取配置失败，使用兜底价格', e);
-  }
-  return FALLBACK_PRICES[planKey] ?? null;
-}
 
 const EPAY_PID = process.env.EPAY_PID || '11177';
 const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
@@ -53,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { planKey, payType = 'alipay' } = req.body || {};
-  const plan = await getPlanPrice(planKey);
+  const plan = PLAN_PRICES[planKey];
   if (!plan) return res.status(400).json({ error: '套餐不存在' });
 
   const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
