@@ -32,7 +32,7 @@ export default function HomePage() {
 
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              to="/reduce"
+              to="/"
               className="group flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:shadow-xl hover:shadow-primary-300 active:scale-[0.97]"
             >
               开始改写
@@ -165,7 +165,7 @@ export default function HomePage() {
             </div>
             <div className="mt-8">
               <Link
-                to="/reduce"
+                to="/"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-primary-200 transition-all hover:shadow-lg active:scale-[0.97]"
               >
                 立即开始使用

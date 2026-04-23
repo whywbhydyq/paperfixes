@@ -28,3 +28,7 @@ Thumbs.db
 *.log
 
 .vercel
+
+.backups/
+*.bak
+project_dump.txt

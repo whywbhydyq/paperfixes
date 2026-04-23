@@ -34,7 +34,8 @@ export default function Navbar() {
 
   const isActive = (link: typeof navLinks[0]) => {
     if (link.matchExact) return location.pathname === '/';
-    return location.pathname === link.to;
+    const linkPath = link.to.split('?')[0];
+    return location.pathname === linkPath;
   };
 
   return (

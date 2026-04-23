@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import JobPoller from '../components/JobPoller';
 import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
@@ -18,7 +19,6 @@ async function fetchPlanMaxChars(plan: string, token: string | null): Promise<nu
   const defaults: Record<string, number> = { free: 500, basic: 3000, pro: 5000 };
   return defaults[plan] ?? 500;
 }
-import JobPoller from '../components/JobPoller';
 
 type Phase = 'input' | 'processing' | 'done';
 

@@ -5,6 +5,7 @@ interface User {
   id: string;
   email?: string;
   phone?: string;
+  wechatName?: string;
   role: string;
   plan: string;
   quota: number;

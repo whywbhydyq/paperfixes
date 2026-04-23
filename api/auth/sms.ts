@@ -220,8 +220,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 查找或创建用户
     let user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
+      let freeQuota = 5;
+      try {
+        const cfg = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });
+        if (cfg) {
+          const plans = JSON.parse(cfg.value);
+          const fp = plans.find((p: { planKey: string; active: boolean }) => p.planKey === 'free' && p.active);
+          if (fp) freeQuota = fp.quota;
+        }
+      } catch {}
       user = await prisma.user.create({
-        data: { phone, role: 'user', plan: 'free', quota: 5 },
+        data: { phone, role: 'user', plan: 'free', quota: freeQuota },
       });
     }
 
