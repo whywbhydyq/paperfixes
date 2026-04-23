@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Mail, Phone, QrCode, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { X, Mail, Phone, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   loginWithEmail, registerWithEmail,
   sendSmsCode, verifySmsCode,
-  getWechatQR, pollWechatScan,
 } from '../lib/api';
 
-type Tab = 'phone' | 'email' | 'wechat';
+type Tab = 'phone' | 'email';
 type Mode = 'login' | 'register';
 
 export default function LoginModal() {
@@ -30,66 +29,25 @@ export default function LoginModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 微信
-  const [qrUrl, setQrUrl] = useState('');
-  const [qrLoading, setQrLoading] = useState(false);
-  const [qrStatus, setQrStatus] = useState<'loading' | 'waiting' | 'scanned' | 'expired'>('loading');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetForm = useCallback(() => {
     setPhone(''); setSmsCode(''); setSmsSent(false); setSmsCountdown(0); setDevCode('');
     setEmail(''); setPassword(''); setError(''); setLoading(false);
-    setQrUrl(''); setQrStatus('loading');
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   }, []);
-
-  const loadQRCode = useCallback(async () => {
-    setQrLoading(true);
-    setQrStatus('loading');
-    try {
-      const data = await getWechatQR();
-      setQrUrl(data.qrUrl);
-      setQrStatus('waiting');
-      const sceneId = data.scene;
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        try {
-          const scanData = await pollWechatScan(sceneId);
-          if (scanData.status === 'scanned') {
-            setQrStatus('scanned');
-          } else if (scanData.status === 'confirmed' && scanData.token && scanData.user) {
-            clearInterval(pollRef.current!);
-            pollRef.current = null;
-            login(scanData.user, scanData.token);
-          } else if (scanData.status === 'expired') {
-            clearInterval(pollRef.current!);
-            pollRef.current = null;
-            setQrStatus('expired');
-          }
-        } catch { /* retry */ }
-      }, 2000);
-    } catch {
-      setQrStatus('expired');
-    } finally {
-      setQrLoading(false);
-    }
-  }, [login]);
 
   useEffect(() => {
     if (showLoginModal) {
       resetForm();
-      if (tab === 'wechat') loadQRCode();
     } else {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
     }
     return () => {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
     };
-  }, [showLoginModal, tab, resetForm, loadQRCode]);
+  }, [showLoginModal, resetForm]);
 
   // 发送短信
   const handleSendSms = async () => {
@@ -174,7 +132,6 @@ export default function LoginModal() {
           {([
             { key: 'phone', label: '手机号', icon: <Phone size={15} /> },
             { key: 'email', label: '邮箱', icon: <Mail size={15} /> },
-            { key: 'wechat', label: '微信', icon: <QrCode size={15} /> },
           ] as const).map(({ key, label, icon }) => (
             <button
               key={key}
@@ -324,46 +281,6 @@ export default function LoginModal() {
             </form>
           )}
 
-          {/* 微信 Tab */}
-          {tab === 'wechat' && (
-            <div className="flex flex-col items-center py-4">
-              {qrLoading ? (
-                <div className="flex h-52 w-52 items-center justify-center rounded-xl bg-gray-50">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-                </div>
-              ) : qrStatus === 'waiting' && qrUrl ? (
-                <>
-                  <div className="overflow-hidden rounded-xl border-2 border-gray-100 bg-white p-2">
-                    <img src={qrUrl} alt="微信登录二维码" className="h-52 w-52 object-contain" />
-                  </div>
-                  <p className="mt-4 text-sm text-gray-600">
-                    请使用 <span className="font-medium text-green-600">微信</span> 扫描二维码登录
-                  </p>
-                </>
-              ) : qrStatus === 'scanned' ? (
-                <div className="flex flex-col items-center py-8">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-600">
-                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-gray-900">扫描成功</p>
-                  <p className="text-xs text-gray-500">请在手机上确认登录</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center py-8">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-400">
-                    <QrCode size={28} />
-                  </div>
-                  <p className="mt-4 text-sm text-gray-500">二维码已过期</p>
-                  <button onClick={loadQRCode}
-                    className="mt-3 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
-                    刷新二维码
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

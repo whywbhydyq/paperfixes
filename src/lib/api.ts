@@ -56,16 +56,6 @@ export async function verifySmsCode(phone: string, code: string) {
   );
 }
 
-export async function getWechatQR() {
-  return request<{ qrUrl: string; scene: string }>('/api/auth/wechat/qrcode');
-}
-
-export async function pollWechatScan(scene: string) {
-  return request<{ status: string; token?: string; user?: any }>(
-    `/api/auth/wechat-poll/${scene}`
-  );
-}
-
 export interface SubmitResponse {
   jobId: string;
   quota: number;

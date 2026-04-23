@@ -18,7 +18,8 @@ interface PlanConfig {
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function PricingPage() {
-  const { isLoggedIn, openLoginModal } = useAuthStore();
+  const { isLoggedIn, openLoginModal, token } = useAuthStore();
+  const useAuthStoreRef = { token };
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,10 +30,33 @@ export default function PricingPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const handlePurchase = (plan: PlanConfig) => {
+  const [payLoading, setPayLoading] = useState<string | null>(null);
+
+  const handlePurchase = async (plan: PlanConfig, payType: 'alipay' | 'wxpay' = 'alipay') => {
     if (!isLoggedIn) { openLoginModal(); return; }
     if (plan.price === 0) return;
-    alert('支付功能即将上线，敬请期待！');
+    const { token } = useAuthStoreRef;
+    setPayLoading(plan.planKey + '_' + payType);
+    try {
+      const res = await fetch(`${API_BASE}/api/payment/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ planKey: plan.planKey, payType }),
+      });
+      const data = await res.json();
+      if (data.payUrl) {
+        window.location.href = data.payUrl;
+      } else {
+        alert(data.error || '支付失败，请重试');
+      }
+    } catch {
+      alert('网络错误，请重试');
+    } finally {
+      setPayLoading(null);
+    }
   };
 
   if (loading) {
@@ -104,8 +128,21 @@ export default function PricingPage() {
                         : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
                     }`}
                   >
-                    {plan.price === 0 ? (isLoggedIn ? '当前可用' : '免费注册') : '立即购买'}
+                    {plan.price === 0
+                      ? (isLoggedIn ? '当前可用' : '免费注册')
+                      : payLoading?.startsWith(plan.planKey)
+                      ? '跳转中...'
+                      : '支付宝付款'}
                   </button>
+                  {plan.price > 0 && (
+                    <button
+                      onClick={() => handlePurchase(plan, 'wxpay')}
+                      disabled={!!payLoading}
+                      className="w-full mt-2 rounded-xl py-2.5 text-sm font-semibold transition-all border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 disabled:opacity-50"
+                    >
+                      {payLoading?.startsWith(plan.planKey) ? '跳转中...' : '微信付款'}
+                    </button>
+                  )}
                 </div>
               );
             })}

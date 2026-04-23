@@ -62,7 +62,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
-              支持微信/邮箱登录
+              手机号/邮箱登录
             </div>
           </div>
         </div>
@@ -154,7 +154,7 @@ export default function HomePage() {
                 '技术专有名词绝对不修改',
                 '输出字数控制在原文±5%以内',
                 '失败自动退还额度',
-                '支持微信扫码和邮箱登录',
+                '支持手机号和邮箱登录',
                 '数据传输端到端加密',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-3">
