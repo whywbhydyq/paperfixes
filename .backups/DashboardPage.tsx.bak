@@ -3,7 +3,7 @@ import {
   User, Zap, FileText, Clock, LogOut, ArrowRight,
   ChevronDown, ChevronUp, Copy, Check, Receipt, Key, Eye, EyeOff, Loader2,
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { fetchQuota, fetchTopups, type TopupRecord } from '../lib/api';
 
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]">
+                  <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-500">
                       <tr>
                         <th className="px-5 py-3 text-left font-medium">时间</th>
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table></div>
+                  </table>
                 </div>
               )}
             </div>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                 {user?.phone && !user?.email && (
                   <div className="mb-4 rounded-lg bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700">
-                    您当前使用手机号登录。如需设置密码以支持邮箱登录，请留空「当前密码」直接设置新密码
+                    您使用手机号登录，可在此设置密码以便后续邮箱登录
                   </div>
                 )}
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">

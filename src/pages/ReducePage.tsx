@@ -177,6 +177,9 @@ export default function ReducePage() {
                   {phase === 'done' ? <Check size={14} /> : <Sparkles size={14} />}
                 </div>
                 <span className="text-sm font-semibold text-gray-900">改写结果</span>
+                {phase === 'done' && text.trim().length > 0 && (
+                  <span className="text-xs text-gray-400">{text.trim().length}字 → <span className="text-green-600 font-medium">{outputLen}字</span></span>
+                )}
               </div>
               {phase === 'done' && (
                 <div className="flex items-center gap-2">

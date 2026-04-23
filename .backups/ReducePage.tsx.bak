@@ -189,7 +189,7 @@ export default function ReducePage() {
             </div>
 
             {phase === 'input' && (
-              <div className="flex h-[500px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
+              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
                 <p className="text-sm font-medium text-gray-500">粘贴文本后点击"开始改写"</p>
                 <p className="mt-1.5 text-xs text-gray-400">结果将在这里显示，与原文对照查看</p>
@@ -197,13 +197,13 @@ export default function ReducePage() {
             )}
 
             {phase === 'processing' && (
-              <div className="h-[500px]">
+              <div className="min-h-[320px]">
           <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
               </div>
             )}
 
             {phase === 'done' && (
-              <div className="custom-scrollbar h-[500px] overflow-y-auto rounded-xl border border-gray-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
+              <div className="custom-scrollbar min-h-[320px] rounded-xl border border-gray-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
             )}
           </div>
         </div>

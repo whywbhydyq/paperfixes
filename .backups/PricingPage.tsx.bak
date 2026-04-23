@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
@@ -135,7 +134,7 @@ export default function PricingPage() {
                     ))}
                   </div>
                   <button
-                    onClick={() => plan.price > 0 ? setSelectedPlan({ name: plan.name, price: plan.price, quota: plan.quota, planKey: plan.planKey }) : isLoggedIn ? window.location.href = '/dashboard' : openLoginModal()}
+                    onClick={() => plan.price > 0 ? setSelectedPlan({ name: plan.name, price: plan.price, quota: plan.quota, planKey: plan.planKey }) : null}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
                       plan.popular
                         ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-200 hover:shadow-lg'
@@ -145,7 +144,7 @@ export default function PricingPage() {
                     }`}
                   >
                     {plan.price === 0
-                      ? (isLoggedIn ? '前往使用' : '免费注册')
+                      ? (isLoggedIn ? '当前可用' : '免费注册')
                       : '立即订阅'}
                   </button>
                 </div>
