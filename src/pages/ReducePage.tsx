@@ -2,16 +2,27 @@ import { useState, useCallback, useEffect } from 'react';
 import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '';
+
+async function fetchPlanMaxChars(plan: string, token: string | null): Promise<number> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin?resource=config`);
+    const data = await res.json();
+    if (data.plans) {
+      const found = data.plans.find((p: { planKey: string; maxChars: number }) => p.planKey === plan);
+      if (found) return found.maxChars;
+    }
+  } catch {}
+  // 兜底
+  const defaults: Record<string, number> = { free: 500, basic: 3000, pro: 5000 };
+  return defaults[plan] ?? 500;
+}
 import JobPoller from '../components/JobPoller';
 
 type Phase = 'input' | 'processing' | 'done';
 
 const MIN_CHARS = 40;
-const PLAN_MAX_CHARS: Record<string, number> = {
-  free: 500,
-  basic: 3000,
-  pro: 5000,
-};
 
 export default function ReducePage() {
   const { isLoggedIn, user, token, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob, inputText: savedText, saveInputText, clearInputText } = useAuthStore();
@@ -23,7 +34,12 @@ export default function ReducePage() {
   const [result, setResult] = useState('');
   const [outputLen, setOutputLen] = useState(0);
   const [copied, setCopied] = useState(false);
-  const MAX_CHARS = PLAN_MAX_CHARS[user?.plan ?? 'free'] ?? 500;
+  const [MAX_CHARS, setMaxChars] = useState(500);
+
+  // 动态拉取当前套餐的 maxChars
+  useEffect(() => {
+    fetchPlanMaxChars(user?.plan ?? 'free', token).then(setMaxChars);
+  }, [user?.plan, token]);
 
   useEffect(() => {
     if (activeJob) {

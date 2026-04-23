@@ -18,6 +18,9 @@ interface PlanConfig {
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
+// 模块级缓存，整个 session 只请求一次
+let _cachedPlans: PlanConfig[] | null = null;
+
 export default function PricingPage() {
   const { isLoggedIn, openLoginModal, token } = useAuthStore();
   const useAuthStoreRef = { token };
@@ -25,9 +28,19 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (_cachedPlans) {
+      setPlans(_cachedPlans);
+      setLoading(false);
+      return;
+    }
     fetch(`${API_BASE}/api/admin?resource=config`)
       .then(r => r.json())
-      .then(d => { setPlans(d.plans || []); setLoading(false); })
+      .then(d => {
+        const plans = d.plans || [];
+        _cachedPlans = plans;
+        setPlans(plans);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 

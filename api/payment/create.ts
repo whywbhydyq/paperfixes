@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { planKey, payType = 'alipay' } = req.body || {};
-  const plan = PLAN_PRICES[planKey];
+  const plan = await getPlanPrice(planKey);
   if (!plan) return res.status(400).json({ error: '套餐不存在' });
 
   const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

@@ -29,6 +29,7 @@ export default function Navbar() {
     { to: '/', label: '开始改写', matchExact: true },
     { to: '/home', label: '了解更多' },
     { to: '/pricing', label: '定价' },
+    { to: '/dashboard?tab=history', label: '修改历史' },
   ];
 
   const isActive = (link: typeof navLinks[0]) => {
