@@ -197,8 +197,8 @@ export default function ReducePage() {
             )}
 
             {phase === 'processing' && (
-              <div className="min-h-[320px]">
-                <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
+              <div className="h-[500px]">
+          <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
               </div>
             )}
 
