@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import PaymentModal from '../components/PaymentModal';
 
 interface PlanConfig {
   planKey: string;
@@ -31,12 +32,12 @@ export default function PricingPage() {
   }, []);
 
   const [payLoading, setPayLoading] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; quota: number; planKey: string } | null>(null);
 
-  const handlePurchase = async (plan: PlanConfig, payType: 'alipay' | 'wxpay' = 'alipay') => {
-    if (!isLoggedIn) { openLoginModal(); return; }
-    if (plan.price === 0) return;
+  const handlePurchase = async (payType: 'alipay' | 'wxpay') => {
+    if (!selectedPlan) return;
     const { token } = useAuthStoreRef;
-    setPayLoading(plan.planKey + '_' + payType);
+    setPayLoading(selectedPlan.planKey + '_' + payType);
     try {
       const res = await fetch(`${API_BASE}/api/payment/create`, {
         method: 'POST',
@@ -44,7 +45,7 @@ export default function PricingPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ planKey: plan.planKey, payType }),
+        body: JSON.stringify({ planKey: selectedPlan.planKey, payType }),
       });
       const data = await res.json();
       if (data.payUrl) {
@@ -56,6 +57,7 @@ export default function PricingPage() {
       alert('网络错误，请重试');
     } finally {
       setPayLoading(null);
+      setSelectedPlan(null);
     }
   };
 
@@ -119,7 +121,7 @@ export default function PricingPage() {
                     ))}
                   </div>
                   <button
-                    onClick={() => handlePurchase(plan)}
+                    onClick={() => plan.price > 0 ? setSelectedPlan({ name: plan.name, price: plan.price, quota: plan.quota, planKey: plan.planKey }) : null}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
                       plan.popular
                         ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-200 hover:shadow-lg'
@@ -130,19 +132,8 @@ export default function PricingPage() {
                   >
                     {plan.price === 0
                       ? (isLoggedIn ? '当前可用' : '免费注册')
-                      : payLoading?.startsWith(plan.planKey)
-                      ? '跳转中...'
-                      : '支付宝付款'}
+                      : '立即订阅'}
                   </button>
-                  {plan.price > 0 && (
-                    <button
-                      onClick={() => handlePurchase(plan, 'wxpay')}
-                      disabled={!!payLoading}
-                      className="w-full mt-2 rounded-xl py-2.5 text-sm font-semibold transition-all border border-green-200 bg-green-50 text-green-800 hover:bg-green-100 disabled:opacity-50"
-                    >
-                      {payLoading?.startsWith(plan.planKey) ? '跳转中...' : '微信付款'}
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -152,6 +143,12 @@ export default function PricingPage() {
           <p className="mt-1">处理失败自动退还额度</p>
         </div>
       </div>
+
+      <PaymentModal
+        plan={selectedPlan}
+        onClose={() => setSelectedPlan(null)}
+        onConfirm={handlePurchase}
+      />
     </div>
   );
 }
