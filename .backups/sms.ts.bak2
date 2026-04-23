@@ -69,19 +69,14 @@ async function aliyunRequest(action: string, bizParams: Record<string, string>):
 // ============================================================
 async function sendSmsViaAliyun(phone: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const signName = process.env.ALIYUN_SMS_SIGN_NAME || '';
-    const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE || '';
     const result = await aliyunRequest('SendSmsVerifyCode', {
       PhoneNumber: phone,
       CountryCode: '86',
-      SignName: signName,
-      TemplateCode: templateCode,
-      TemplateParam: '{"code":"##code##","min":"10"}',
       CodeLength: '6',
       ValidTime: '600',
       CodeType: '1',
       Interval: '60',
-      DuplicatePolicy: '1',
+      TemplateParam: '{"code":"##code##","min":"10"}',
     });
 
     console.log('[Aliyun SMS Send]', JSON.stringify(result));
