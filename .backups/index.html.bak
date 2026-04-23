@@ -1,11 +1,9 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PaperFix - 学术改写引擎</title>
+    <title>学术改写引擎 - 专注降低AIGC检测率</title>
   </head>
   <body>
     <div id="root"></div>
