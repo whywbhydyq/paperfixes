@@ -2,8 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import crypto from 'crypto';
 
-const EPAY_PID = process.env.EPAY_PID || '11177';
-const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
+const EPAY_PID = process.env.EPAY_PID || '';
+const EPAY_KEY = process.env.EPAY_KEY || '';
 
 function buildSign(params: Record<string, string>, key: string): string {
   const filtered = Object.entries(params)

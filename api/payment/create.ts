@@ -23,8 +23,8 @@ async function getPlanPrice(planKey: string): Promise<{ amount: number; quota: n
   return FALLBACK_PRICES[planKey] ?? null;
 }
 
-const EPAY_PID = process.env.EPAY_PID || '11177';
-const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
+const EPAY_PID = process.env.EPAY_PID || '';
+const EPAY_KEY = process.env.EPAY_KEY || '';
 const EPAY_API = process.env.EPAY_API || 'https://pay.mzfpay.com';
 
 function buildSign(params: Record<string, string>, key: string): string {
@@ -36,7 +36,13 @@ function buildSign(params: Record<string, string>, key: string): string {
   return crypto.createHash('md5').update(str + key).digest('hex');
 }
 
+const EPAY_CONFIGURED = !!(process.env.EPAY_PID && process.env.EPAY_KEY);
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!EPAY_CONFIGURED) {
+    console.error('[Payment] EPAY_PID 或 EPAY_KEY 未配置');
+    return res.status(500).json({ error: '支付未配置，请联系管理员' });
+  }
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '请先登录' });
 
