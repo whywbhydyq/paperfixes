@@ -40,13 +40,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '请先登录' });
 
-  // \u67e5\u8be2\u8ba2\u5355\u72b6\u6001
+  // 查询订单状态
   if (req.method === 'GET') {
     const { orderId } = req.query;
     const order = await prisma.order.findFirst({
       where: { id: orderId as string, userId },
     });
-    if (!order) return res.status(404).json({ error: '\u8ba2\u5355\u4e0d\u5b58\u5728' });
+    if (!order) return res.status(404).json({ error: '订单不存在' });
     return res.status(200).json({ status: order.status });
   }
 
@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || 'https://react-rewrite-application-architect.vercel.app';
 
-  // 构造易支付跳转参数
+  // 构造易支付参数（mapi.php 服务器POST方式）
   const params: Record<string, string> = {
     pid: EPAY_PID,
     type: payType as string,
@@ -78,11 +78,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   params.sign = buildSign(params, EPAY_KEY);
   params.sign_type = 'MD5';
 
-  const query = Object.entries(params)
+  // 服务器端 POST 请求 mapi.php
+  const formBody = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
-  const payUrl = `${EPAY_API}/submit.php?${query}`;
 
   console.log(`[Payment Create] orderId=${orderId} plan=${planKey} amount=${plan.amount} payType=${payType}`);
-  return res.status(200).json({ orderId, payUrl });
+
+  try {
+    const epayRes = await fetch(`${EPAY_API}/mapi.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody,
+    });
+
+    const epayData = await epayRes.json();
+    console.log('[Payment Create] 易支付返回:', JSON.stringify(epayData));
+
+    if (epayData.code === 1 && (epayData.payurl || epayData.qrcode || epayData.urlscheme)) {
+      const payUrl = epayData.payurl || epayData.qrcode || epayData.urlscheme;
+      return res.status(200).json({ orderId, payUrl });
+    } else {
+      console.error('[Payment Create] 易支付失败:', JSON.stringify(epayData));
+      // 删除刚创建的订单
+      await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+      return res.status(500).json({ error: epayData.msg || '支付通道暂不可用，请稍后重试' });
+    }
+  } catch (err) {
+    console.error('[Payment Create] 请求易支付失败:', err);
+    await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
+    return res.status(500).json({ error: '支付服务连接失败，请稍后重试' });
+  }
 }
