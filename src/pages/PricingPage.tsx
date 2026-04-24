@@ -92,7 +92,8 @@ export default function PricingPage() {
         setPaySuccess(true);
         setPendingOrderId(null);
         // 刷新额度
-        const { fetchQuota, updateQuota } = await import('../lib/api');
+        const { fetchQuota } = await import('../lib/api');
+        const { updateQuota } = useAuthStore.getState();
         const quotaData = await fetchQuota(useAuthStoreRef.token);
         updateQuota(quotaData.quota, quotaData.totalUsed);
       } else {
