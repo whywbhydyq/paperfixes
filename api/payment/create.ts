@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 const EPAY_PID = process.env.EPAY_PID || '11177';
 const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
-const EPAY_API = (process.env.EPAY_API || 'https://pay.mzfpay.com/xpay/epay').replace(/\/$/, '');
+const EPAY_API = (process.env.EPAY_API?.replace(/\/$/, '') || 'https://pay.mzfpay.com/xpay/epay');
 
 // 兜底价格（数据库配置优先）
 const FALLBACK_PRICES: Record<string, { amount: number; quota: number; name: string }> = {
