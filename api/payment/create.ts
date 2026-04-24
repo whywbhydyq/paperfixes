@@ -1,3 +1,4 @@
+// api/payment/create.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
@@ -5,9 +6,9 @@ import crypto from 'crypto';
 
 const EPAY_PID = process.env.EPAY_PID || '11177';
 const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
-const EPAY_API = (process.env.EPAY_API?.replace(/\/$/, '') || 'https://pay.mzfpay.com/xpay/epay');
+// 修复：直接用域名，不加子路径
+const EPAY_API = (process.env.EPAY_API || 'https://pay.mzfpay.com').replace(/\/$/, '');
 
-// 兜底价格（数据库配置优先）
 const FALLBACK_PRICES: Record<string, { amount: number; quota: number; name: string }> = {
   emergency: { amount: 9.9, quota: 5, name: '急救包' },
   basic: { amount: 49, quota: 30, name: '毕业包' },
@@ -19,7 +20,9 @@ async function getPlanPrice(planKey: string): Promise<{ amount: number; quota: n
     const config = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });
     if (config) {
       const plans = JSON.parse(config.value);
-      const found = plans.find((p: { planKey: string; price: number; quota: number; name: string; active: boolean }) => p.planKey === planKey && p.active);
+      const found = plans.find((p: { planKey: string; price: number; quota: number; name: string; active: boolean }) =>
+        p.planKey === planKey && p.active
+      );
       if (found) return { amount: found.price, quota: found.quota, name: found.name };
     }
   } catch (e) {
@@ -40,7 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '请先登录' });
 
-  // 查询订单状态
   if (req.method === 'GET') {
     const { orderId } = req.query;
     const order = await prisma.order.findFirst({
@@ -63,7 +65,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || 'https://react-rewrite-application-architect.vercel.app';
 
-  // 构造易支付参数（mapi.php 服务器POST方式）
   const params: Record<string, string> = {
     pid: EPAY_PID,
     type: payType as string,
@@ -78,35 +79,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   params.sign = buildSign(params, EPAY_KEY);
   params.sign_type = 'MD5';
 
-  // 服务器端 POST 请求 mapi.php
-  const formBody = Object.entries(params)
+  // 构造支付页面URL（直接跳转，不走服务端fetch）
+  const payPageUrl = `${EPAY_API}/submit.php?` + Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
 
   console.log(`[Payment Create] orderId=${orderId} plan=${planKey} amount=${plan.amount} payType=${payType}`);
+  console.log(`[Payment Create] payPageUrl=${payPageUrl}`);
 
-  try {
-    const epayRes = await fetch(`${EPAY_API}/mapi.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formBody,
-    });
-
-    const epayData = await epayRes.json();
-    console.log('[Payment Create] 易支付返回:', JSON.stringify(epayData));
-
-    if (epayData.code === 1 && (epayData.payurl || epayData.qrcode || epayData.urlscheme)) {
-      const payUrl = epayData.payurl || epayData.qrcode || epayData.urlscheme;
-      return res.status(200).json({ orderId, payUrl });
-    } else {
-      console.error('[Payment Create] 易支付失败:', JSON.stringify(epayData));
-      // 删除刚创建的订单
-      await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
-      return res.status(500).json({ error: epayData.msg || '支付通道暂不可用，请稍后重试' });
-    }
-  } catch (err) {
-    console.error('[Payment Create] 请求易支付失败:', err);
-    await prisma.order.delete({ where: { id: orderId } }).catch(() => {});
-    return res.status(500).json({ error: '支付服务连接失败，请稍后重试' });
-  }
+  return res.status(200).json({ orderId, payUrl: payPageUrl });
 }
