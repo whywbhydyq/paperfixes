@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, CheckCircle } from 'lucide-react';
 
 interface PaymentModalProps {
   plan: {
@@ -10,11 +10,70 @@ interface PaymentModalProps {
   } | null;
   onClose: () => void;
   onConfirm: (payType: 'alipay' | 'wxpay') => Promise<void>;
+  pendingOrderId?: string | null;
+  paySuccess?: boolean;
+  onCheckPayment?: () => void;
 }
 
-export default function PaymentModal({ plan, onClose, onConfirm }: PaymentModalProps) {
+export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId, paySuccess, onCheckPayment }: PaymentModalProps) {
   const [payType, setPayType] = useState<'alipay' | 'wxpay'>('alipay');
   const [loading, setLoading] = useState(false);
+
+  if (!plan && !pendingOrderId && !paySuccess) return null;
+
+  // 支付成功状态
+  if (paySuccess) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative z-10 w-full max-w-sm animate-fade-in-up overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle size={32} className="text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">支付成功</h3>
+            <p className="mt-2 text-sm text-gray-500">额度已到账，可以开始改写了</p>
+            <button onClick={onClose}
+              className="mt-6 w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700">
+              开始使用
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 等待支付确认状态
+  if (pendingOrderId && !plan) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative z-10 w-full max-w-sm animate-fade-in-up overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b px-5 py-4">
+            <h3 className="text-base font-semibold text-gray-900">等待支付</h3>
+            <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="p-5 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+              <Loader2 size={24} className="text-amber-600 animate-spin" />
+            </div>
+            <p className="text-sm text-gray-600">支付页面已在新标签页打开</p>
+            <p className="mt-1 text-xs text-gray-400">完成支付后点击下方按钮</p>
+            <button onClick={onCheckPayment}
+              className="mt-5 w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700">
+              我已完成支付
+            </button>
+            <button onClick={onClose}
+              className="mt-2 w-full rounded-xl border border-gray-200 py-3 text-sm text-gray-500 hover:bg-gray-50">
+              稍后再查
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!plan) return null;
 

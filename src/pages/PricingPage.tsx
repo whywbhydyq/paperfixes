@@ -48,10 +48,14 @@ export default function PricingPage() {
   const [payLoading, setPayLoading] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; quota: number; planKey: string } | null>(null);
 
+  const [paySuccess, setPaySuccess] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
   const handlePurchase = async (payType: 'alipay' | 'wxpay') => {
     if (!selectedPlan) return;
     const { token } = useAuthStoreRef;
-    setPayLoading(selectedPlan.planKey + '_' + payType);
+    const loadingKey = selectedPlan.planKey + '_' + payType;
+    setPayLoading(loadingKey);
     try {
       const res = await fetch(`${API_BASE}/api/payment/create`, {
         method: 'POST',
@@ -63,15 +67,39 @@ export default function PricingPage() {
       });
       const data = await res.json();
       if (data.payUrl) {
-        window.location.href = data.payUrl;
+        setPendingOrderId(data.orderId);
+        setSelectedPlan(null);
+        setPayLoading(null);
+        window.open(data.payUrl, '_blank');
       } else {
         alert(data.error || '支付失败，请重试');
+        setPayLoading(null);
       }
     } catch {
       alert('网络错误，请重试');
-    } finally {
       setPayLoading(null);
-      setSelectedPlan(null);
+    }
+  };
+
+  const checkPayment = async () => {
+    if (!pendingOrderId || !useAuthStoreRef.token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/payment/create?orderId=${pendingOrderId}`, {
+        headers: { 'Authorization': `Bearer ${useAuthStoreRef.token}` },
+      });
+      const data = await res.json();
+      if (data.status === 'PAID') {
+        setPaySuccess(true);
+        setPendingOrderId(null);
+        // 刷新额度
+        const { fetchQuota, updateQuota } = await import('../lib/api');
+        const quotaData = await fetchQuota(useAuthStoreRef.token);
+        updateQuota(quotaData.quota, quotaData.totalUsed);
+      } else {
+        alert('尚未收到支付确认，请稍后再试。如果已支付，额度会自动到账。');
+      }
+    } catch {
+      alert('网络错误，请重试');
     }
   };
 
@@ -160,8 +188,11 @@ export default function PricingPage() {
 
       <PaymentModal
         plan={selectedPlan}
-        onClose={() => setSelectedPlan(null)}
+        onClose={() => { setSelectedPlan(null); setPaySuccess(false); }}
         onConfirm={handlePurchase}
+        pendingOrderId={pendingOrderId}
+        paySuccess={paySuccess}
+        onCheckPayment={checkPayment}
       />
     </div>
   );
