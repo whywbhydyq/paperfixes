@@ -3,10 +3,15 @@ import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import crypto from 'crypto';
 
+const EPAY_PID = process.env.EPAY_PID || '11177';
+const EPAY_KEY = process.env.EPAY_KEY || 'LoUYaj45n4iQTf4yNdpT';
+const EPAY_API = (process.env.EPAY_API || 'https://pay.mzfpay.com/xpay/epay').replace(/\/$/, '');
+
 // 兜底价格（数据库配置优先）
 const FALLBACK_PRICES: Record<string, { amount: number; quota: number; name: string }> = {
-  basic: { amount: 29, quota: 50, name: '基础套餐' },
-  pro: { amount: 99, quota: 300, name: '专业套餐' },
+  emergency: { amount: 9.9, quota: 5, name: '急救包' },
+  basic: { amount: 49, quota: 30, name: '毕业包' },
+  pro: { amount: 99, quota: 100, name: '全包通行' },
 };
 
 async function getPlanPrice(planKey: string): Promise<{ amount: number; quota: number; name: string } | null> {
@@ -23,12 +28,7 @@ async function getPlanPrice(planKey: string): Promise<{ amount: number; quota: n
   return FALLBACK_PRICES[planKey] ?? null;
 }
 
-const EPAY_PID = process.env.EPAY_PID || '';
-const EPAY_KEY = process.env.EPAY_KEY || '';
-const EPAY_API = process.env.EPAY_API || 'https://pay.mzfpay.com';
-
 function buildSign(params: Record<string, string>, key: string): string {
-  // 过滤空值和sign/sign_type，按ASCII排序，拼接，追加key，MD5
   const filtered = Object.entries(params)
     .filter(([k, v]) => v !== '' && v != null && k !== 'sign' && k !== 'sign_type')
     .sort(([a], [b]) => a.localeCompare(b));
@@ -36,23 +36,17 @@ function buildSign(params: Record<string, string>, key: string): string {
   return crypto.createHash('md5').update(str + key).digest('hex');
 }
 
-const EPAY_CONFIGURED = !!(process.env.EPAY_PID && process.env.EPAY_KEY);
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!EPAY_CONFIGURED) {
-    console.error('[Payment] EPAY_PID 或 EPAY_KEY 未配置');
-    return res.status(500).json({ error: '支付未配置，请联系管理员' });
-  }
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '请先登录' });
 
-  // 查询订单状态
+  // \u67e5\u8be2\u8ba2\u5355\u72b6\u6001
   if (req.method === 'GET') {
     const { orderId } = req.query;
     const order = await prisma.order.findFirst({
       where: { id: orderId as string, userId },
     });
-    if (!order) return res.status(404).json({ error: '订单不存在' });
+    if (!order) return res.status(404).json({ error: '\u8ba2\u5355\u4e0d\u5b58\u5728' });
     return res.status(200).json({ status: order.status });
   }
 
@@ -67,9 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     data: { id: orderId, userId, planKey, amount: plan.amount, quota: plan.quota, status: 'PENDING' },
   });
 
-  const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || '';
+  const siteUrl = process.env.SITE_URL?.replace(/\/$/, '') || 'https://react-rewrite-application-architect.vercel.app';
 
-  // 构造码支付跳转参数
+  // 构造易支付跳转参数
   const params: Record<string, string> = {
     pid: EPAY_PID,
     type: payType as string,
@@ -84,11 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   params.sign = buildSign(params, EPAY_KEY);
   params.sign_type = 'MD5';
 
-  // 拼接跳转URL
   const query = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&');
-  const payUrl = `${EPAY_API}/xpay/epay/submit.php?${query}`;
+  const payUrl = `${EPAY_API}/submit.php?${query}`;
 
+  console.log(`[Payment Create] orderId=${orderId} plan=${planKey} amount=${plan.amount} payType=${payType}`);
   return res.status(200).json({ orderId, payUrl });
 }
