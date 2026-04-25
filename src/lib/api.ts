@@ -110,6 +110,33 @@ export interface TopupRecord {
 export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
   return request<{ topups: TopupRecord[] }>('/api/user?action=topups', {}, token);
 }
-export async function pollPaymentStatus(orderId: string, token: string | null) {
-  return request<{ status: string }>(`/api/payment/create?orderId=${orderId}`, {}, token);
+
+// ==================== 支付相关 API ====================
+
+export interface CreatePaymentResponse {
+  payUrl?: string;
+  orderId?: string;
+  error?: string;
+}
+
+export async function createPaymentOrder(
+  planKey: string,
+  payType: 'alipay' | 'wxpay',
+  token: string | null
+): Promise<CreatePaymentResponse> {
+  return request<CreatePaymentResponse>('/api/payment/create', {
+    method: 'POST',
+    body: JSON.stringify({ planKey, payType }),
+  }, token);
+}
+
+export interface PaymentStatusResponse {
+  status: string;
+}
+
+export async function pollPaymentStatus(
+  orderId: string,
+  token: string | null
+): Promise<PaymentStatusResponse> {
+  return request<PaymentStatusResponse>(`/api/payment/create?orderId=${orderId}`, {}, token);
 }

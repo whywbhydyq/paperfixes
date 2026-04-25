@@ -21,7 +21,6 @@ export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId,
 
   if (!plan && !pendingOrderId && !paySuccess) return null;
 
-  // 支付成功状态
   if (paySuccess) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -43,7 +42,6 @@ export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId,
     );
   }
 
-  // 等待支付确认状态
   if (pendingOrderId && !plan) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -60,7 +58,7 @@ export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId,
               <Loader2 size={24} className="text-amber-600 animate-spin" />
             </div>
             <p className="text-sm text-gray-600">支付页面已在新标签页打开</p>
-            <p className="mt-1 text-xs text-gray-400">完成支付后点击下方按钮</p>
+            <p className="mt-1.5 text-xs text-primary-600 font-medium">系统正在自动检测支付状态，无需刷新...</p>
             <button onClick={onCheckPayment}
               className="mt-5 w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700">
               我已完成支付

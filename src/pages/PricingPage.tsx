@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import PaymentModal from '../components/PaymentModal';
+import { createPaymentOrder, pollPaymentStatus, fetchQuota } from '../lib/api';
 
 interface PlanConfig {
   planKey: string;
@@ -19,12 +20,11 @@ interface PlanConfig {
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-// 模块级缓存，整个 session 只请求一次
 let _cachedPlans: PlanConfig[] | null = null;
 
 export default function PricingPage() {
-  const { isLoggedIn, openLoginModal, token } = useAuthStore();
-  const useAuthStoreRef = { token };
+  const { isLoggedIn, openLoginModal, token, updateQuota } = useAuthStore();
+  
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,57 +50,89 @@ export default function PricingPage() {
 
   const [paySuccess, setPaySuccess] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 自动轮询支付状态
+  useEffect(() => {
+    if (pendingOrderId && !paySuccess && token) {
+      // 立即查一次
+      checkPayment(true);
+      
+      // 每 3 秒轮询一次
+      pollTimerRef.current = setInterval(() => {
+        checkPayment(true);
+      }, 3000);
+    } else {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [pendingOrderId, paySuccess, token]);
 
   const handlePurchase = async (payType: 'alipay' | 'wxpay') => {
     if (!selectedPlan) return;
-    const { token } = useAuthStoreRef;
     const loadingKey = selectedPlan.planKey + '_' + payType;
     setPayLoading(loadingKey);
     try {
-      const res = await fetch(`${API_BASE}/api/payment/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ planKey: selectedPlan.planKey, payType }),
-      });
-      const data = await res.json();
-      if (data.payUrl) {
+      const data = await createPaymentOrder(selectedPlan.planKey, payType, token);
+      if (data.payUrl && data.orderId) {
         setPendingOrderId(data.orderId);
         setSelectedPlan(null);
-        setPayLoading(null);
         window.open(data.payUrl, '_blank');
       } else {
-        alert(data.error || '支付失败，请重试');
-        setPayLoading(null);
+        alert(data.error || '支付创建失败，请重试');
       }
-    } catch {
-      alert('网络错误，请重试');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '网络错误，请重试');
+    } finally {
       setPayLoading(null);
     }
   };
 
-  const checkPayment = async () => {
-    if (!pendingOrderId || !useAuthStoreRef.token) return;
+  const checkPayment = async (silent: boolean = false) => {
+    if (!pendingOrderId || !token) return;
     try {
-      const res = await fetch(`${API_BASE}/api/payment/create?orderId=${pendingOrderId}`, {
-        headers: { 'Authorization': `Bearer ${useAuthStoreRef.token}` },
-      });
-      const data = await res.json();
+      const data = await pollPaymentStatus(pendingOrderId, token);
       if (data.status === 'PAID') {
+        // 清除定时器
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+        
         setPaySuccess(true);
         setPendingOrderId(null);
-        // 刷新额度
-        const { fetchQuota } = await import('../lib/api');
-        const { updateQuota } = useAuthStore.getState();
-        const quotaData = await fetchQuota(useAuthStoreRef.token);
+        
+        // 修复：正确调用 useAuthStore 的 updateQuota 和 api 的 fetchQuota
+        const quotaData = await fetchQuota(token);
         updateQuota(quotaData.quota, quotaData.totalUsed);
       } else {
-        alert('尚未收到支付确认，请稍后再试。如果已支付，额度会自动到账。');
+        if (!silent) {
+          alert('尚未收到支付确认，请稍后再试。如果已支付，额度会自动到账。');
+        }
       }
     } catch {
-      alert('网络错误，请重试');
+      if (!silent) {
+        alert('网络错误，请重试');
+      }
     }
   };
 
@@ -193,7 +225,7 @@ export default function PricingPage() {
         onConfirm={handlePurchase}
         pendingOrderId={pendingOrderId}
         paySuccess={paySuccess}
-        onCheckPayment={checkPayment}
+        onCheckPayment={() => checkPayment(false)}
       />
     </div>
   );
