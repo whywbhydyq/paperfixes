@@ -138,5 +138,5 @@ export async function pollPaymentStatus(
   orderId: string,
   token: string | null
 ): Promise<PaymentStatusResponse> {
-  return request<PaymentStatusResponse>(`/api/payment/create?orderId=${orderId}`, {}, token);
+  return request<PaymentStatusResponse>(`/api/payment/status?orderId=${orderId}`, {}, token);
 }

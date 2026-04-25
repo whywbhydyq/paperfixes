@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import PaymentModal from '../components/PaymentModal';
@@ -24,6 +25,7 @@ let _cachedPlans: PlanConfig[] | null = null;
 
 export default function PricingPage() {
   const { isLoggedIn, openLoginModal, token, updateQuota } = useAuthStore();
+  const [searchParams] = useSearchParams();
   
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,17 @@ export default function PricingPage() {
 
   const [paySuccess, setPaySuccess] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
+  // 处理从码支付返回的页面
+  useEffect(() => {
+    if (searchParams.get('from_pay') === '1' && token) {
+      const order = searchParams.get('order');
+      if (order) {
+        setPendingOrderId(order);
+      }
+      fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 

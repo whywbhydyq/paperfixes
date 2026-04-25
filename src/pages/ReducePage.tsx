@@ -24,6 +24,8 @@ type Phase = 'input' | 'processing' | 'done';
 
 const MIN_CHARS = 40;
 
+const countChars = (s: string) => s.replace(/\s/g, '').length;
+
 export default function ReducePage() {
   const { isLoggedIn, user, token, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob, inputText: savedText, saveInputText, clearInputText } = useAuthStore();
   const [text, setText] = useState(savedText || '');
@@ -54,7 +56,7 @@ export default function ReducePage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isOverLimit = text.trim().length > MAX_CHARS;
+  const isOverLimit = countChars(text) > MAX_CHARS;
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
@@ -77,7 +79,7 @@ export default function ReducePage() {
   const handleSubmit = async () => {
     setError('');
     if (!text.trim()) { setError('请输入需要改写的文本'); return; }
-    if (text.trim().length < MIN_CHARS) { setError(`文本太短，请至少输入${MIN_CHARS}个字符`); return; }
+    if (countChars(text) < MIN_CHARS) { setError(`文本太短，请至少输入${MIN_CHARS}个字符`); return; }
     if (isOverLimit) { setError(`当前套餐单次最多${MAX_CHARS}字，请精简后重试或升级套餐`); return; }
     if (!isLoggedIn) { openLoginModal(); return; }
     if ((user?.quota ?? 0) <= 0) { setError('额度不足，请前往定价页面购买'); return; }
@@ -140,7 +142,7 @@ export default function ReducePage() {
               <span className="text-sm font-semibold text-gray-900">{isEditable ? '原文输入' : '原文'}</span>
               {isEditable && (
                 <span className={`ml-auto text-xs font-medium ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
-                  {text.length} / {MAX_CHARS} 字{isOverLimit && '（超出限制）'}
+                  {countChars(text)} / {MAX_CHARS} 字{isOverLimit && '（超出限制）'}
                 </span>
               )}
             </div>
@@ -177,8 +179,8 @@ export default function ReducePage() {
                   {phase === 'done' ? <Check size={14} /> : <Sparkles size={14} />}
                 </div>
                 <span className="text-sm font-semibold text-gray-900">改写结果</span>
-                {phase === 'done' && text.trim().length > 0 && (
-                  <span className="text-xs text-gray-400">{text.trim().length}字 → <span className="text-green-600 font-medium">{outputLen}字</span></span>
+                {phase === 'done' && countChars(text) > 0 && (
+                  <span className="text-xs text-gray-400">{countChars(text)}字 → <span className="text-green-600 font-medium">{outputLen}字</span></span>
                 )}
               </div>
               {phase === 'done' && (
@@ -220,7 +222,7 @@ export default function ReducePage() {
               </button>
               <div className="mt-3 flex items-start gap-2 px-1 text-xs text-gray-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字 · 输出字数严格控制</span>
+                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字</span>
               </div>
             </>
           ) : phase === 'done' ? (

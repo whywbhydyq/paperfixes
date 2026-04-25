@@ -27,6 +27,7 @@ interface AuthState {
   showLoginModal: boolean;
   activeJob: ActiveJob | null;
   inputText: string;
+  planActivatedAt: string | null;
   login: (user: User, token: string) => void;
   logout: () => void;
   openLoginModal: () => void;
@@ -47,10 +48,31 @@ export const useAuthStore = create<AuthState>()(
       showLoginModal: false,
       activeJob: null,
       inputText: '',
+      planActivatedAt: null,
       login: (user, token) =>
-        set({ user, token, isLoggedIn: true, showLoginModal: false }),
+        set((state) => {
+          const prevPlan = state.user?.plan || 'free';
+          const newPlan = user.plan;
+          let planActivatedAt = state.planActivatedAt;
+          if (newPlan !== 'free' && (prevPlan === 'free' || !planActivatedAt)) {
+            planActivatedAt = new Date().toISOString();
+          }
+          if (newPlan === 'free') {
+            planActivatedAt = null;
+          }
+          return { user, token, isLoggedIn: true, showLoginModal: false, planActivatedAt };
+        }),
+      checkPlanExpiry: () =>
+        set((state) => {
+          if (!state.user || state.user.plan === 'free' || !state.planActivatedAt) return state;
+          const days = (Date.now() - new Date(state.planActivatedAt).getTime()) / (1000 * 60 * 60 * 24);
+          if (days > 30) {
+            return { user: { ...state.user, plan: 'free' }, planActivatedAt: null };
+          }
+          return state;
+        }),
       logout: () =>
-        set({ user: null, token: null, isLoggedIn: false, activeJob: null }),
+        set({ user: null, token: null, isLoggedIn: false, activeJob: null, planActivatedAt: null }),
       openLoginModal: () => set({ showLoginModal: true }),
       closeLoginModal: () => set({ showLoginModal: false }),
       updateQuota: (quota, totalUsed) =>
@@ -70,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
         isLoggedIn: state.isLoggedIn,
         activeJob: state.activeJob,
         inputText: state.inputText,
+        planActivatedAt: state.planActivatedAt,
       }),
     }
   )
