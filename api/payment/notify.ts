@@ -12,6 +12,8 @@ function genSign(params: Record<string, string>, key: string): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // 禁止缓存
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   console.log('[回调] 收到请求 method=', req.method, 'query=', JSON.stringify(req.query), 'body=', JSON.stringify(req.body));
 
   const params: Record<string, string> = {};
