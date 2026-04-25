@@ -48,9 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: '支付配置错误' });
   }
 
-  const site = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:5173';
+  const site = (process.env.SITE_URL || '').replace(/\/?$/, '') || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
 
   const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
