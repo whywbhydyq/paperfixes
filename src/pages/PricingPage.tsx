@@ -234,7 +234,15 @@ export default function PricingPage() {
 
       <PaymentModal
         plan={selectedPlan}
-        onClose={() => { setSelectedPlan(null); setPaySuccess(false); }}
+        onClose={() => {
+          setSelectedPlan(null);
+          setPaySuccess(false);
+          setPendingOrderId(null);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        }}
         onConfirm={handlePurchase}
         pendingOrderId={pendingOrderId}
         paySuccess={paySuccess}

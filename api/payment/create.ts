@@ -18,9 +18,11 @@ async function getPlanConfig(planKey: string) {
     if (config) {
       const plans = JSON.parse(config.value);
       const plan = plans.find((p: { planKey: string; active: boolean }) => p.planKey === planKey && p.active);
-      if (plan) return { price: plan.price, name: plan.name, quota: plan.quota };
+      if (plan) return { price: Number(plan.price), name: plan.name, quota: Number(plan.quota) };
     }
-  } catch {}
+  } catch (err) {
+    console.error('[支付] 读取套餐配置失败:', err);
+  }
   return null;
 }
 
@@ -38,25 +40,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const plan = await getPlanConfig(planKey);
   if (!plan) return res.status(400).json({ error: '无效套餐' });
 
-  const pid  = process.env.EPAY_PID!;
-  const key  = process.env.EPAY_KEY!;
-  const base = process.env.EPAY_API!;
+  const pid  = process.env.EPAY_PID;
+  const key  = process.env.EPAY_KEY;
+  const base = process.env.EPAY_API;
+  if (!pid || !key || !base) {
+    console.error('[支付] 环境变量缺失 EPAY_PID/EPAY_KEY/EPAY_API');
+    return res.status(500).json({ error: '支付配置错误' });
+  }
+
   const site = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : 'http://localhost:5173';
 
   const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-  await prisma.order.create({
-    data: {
-      id: orderId,
-      userId,
-      planKey,
-      amount: plan.price,
-      quota: plan.quota,
-      status: 'PENDING',
-    },
-  });
+  try {
+    await prisma.order.create({
+      data: {
+        id: orderId,
+        userId,
+        planKey,
+        amount: plan.price,
+        quota: plan.quota,
+        status: 'PENDING',
+      },
+    });
+  } catch (err) {
+    console.error('[支付] 创建订单失败(Order表可能不存在):', err);
+    return res.status(500).json({ error: '创建订单失败，请运行 npx prisma db push' });
+  }
 
   const params: Record<string, string> = {
     pid,
@@ -69,10 +81,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const sign = genSign(params, key);
-  const payUrl = `${base}submit.php?${new URLSearchParams({
+  // 确保 base 末尾有 /
+  const baseUrl = base.replace(/\/?$/, '/');
+  const payUrl = `${baseUrl}submit.php?${new URLSearchParams({
     ...params, sign, sign_type: 'MD5',
   }).toString()}`;
 
-  console.log(`[支付] 订单 ${orderId}, 用户 ${userId}, 套餐 ${planKey}, ${plan.price}元`);
+  console.log(`[支付] 订单=${orderId} 用户=${userId} 套餐=${planKey} 金额=${plan.price} payUrl=${payUrl}`);
   return res.status(200).json({ payUrl, orderId });
 }
