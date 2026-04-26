@@ -12,12 +12,12 @@ function isValidPhone(phone: string): boolean {
 }
 
 async function sendSms(phone: string, code: string): Promise<boolean> {
-  const accessKeyId = process.env.ALI_SMS_ACCESS_KEY_ID;
-  const accessKeySecret = process.env.ALI_SMS_ACCESS_KEY_SECRET;
-  const signName = process.env.ALI_SMS_SIGN_NAME;
-  const templateCode = process.env.ALI_SMS_TEMPLATE_CODE;
+  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+  const signName = process.env.ALIYUN_SMS_SIGN_NAME;
+  const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE;
 
-  if (!accessKeyId || !accessKeySecret) {
+  if (!accessKeyId || !accessKeySecret || !signName || !templateCode) {
     console.log('[SMS-DEV] ', phone, ' => ', code);
     return true;
   }
@@ -83,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ success: false, message: '验证码发送失败' });
     }
 
-    const isDev = !process.env.ALI_SMS_ACCESS_KEY_ID;
+    const isDev = !process.env.ALIYUN_ACCESS_KEY_ID;
     return res.status(200).json({
       success: true,
       message: '验证码已发送',
