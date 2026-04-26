@@ -114,7 +114,8 @@ export async function fetchTopups(token: string | null): Promise<{ topups: Topup
 // ==================== 支付相关 API ====================
 
 export interface CreatePaymentResponse {
-  payUrl?: string;
+  submitUrl?: string;
+  params?: Record<string, string>;
   orderId?: string;
   error?: string;
 }

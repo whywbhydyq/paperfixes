@@ -9,11 +9,7 @@ function genSign(params: Record<string, string>, key: string): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join('&');
-  const signStr = str + '&key=' + key;
-  console.log('[支付] 签名字符串:', signStr);
-  const sign = createHash('md5').update(signStr).digest('hex');
-  console.log('[支付] 签名结果:', sign);
-  return sign;
+  return createHash('md5').update(str + '&key=' + key).digest('hex');
 }
 
 async function getPlanConfig(planKey: string) {
@@ -58,18 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     await prisma.order.create({
-      data: {
-        id: orderId,
-        userId,
-        planKey,
-        amount: plan.price,
-        quota: plan.quota,
-        status: 'PENDING',
-      },
+      data: { id: orderId, userId, planKey, amount: plan.price, quota: plan.quota, status: 'PENDING' },
     });
   } catch (err) {
-    console.error('[支付] 创建订单失败(Order表可能不存在):', err);
-    return res.status(500).json({ error: '创建订单失败，请运行 npx prisma db push' });
+    console.error('[支付] 创建订单失败:', err);
+    return res.status(500).json({ error: '创建订单失败' });
   }
 
   const params: Record<string, string> = {
@@ -84,12 +73,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const sign = genSign(params, key);
-  // 确保 base 末尾有 /
   const baseUrl = base.replace(/\/?$/, '/');
-  const payUrl = `${baseUrl}submit?${new URLSearchParams({
-    ...params, sign, sign_type: 'MD5',
-  }).toString()}`;
+  const submitUrl = `${baseUrl}submit`;
 
-  console.log(`[支付] 订单=${orderId} 用户=${userId} 套餐=${planKey} 金额=${plan.price} payUrl=${payUrl}`);
-  return res.status(200).json({ payUrl, orderId });
+  console.log(`[支付] 订单=${orderId} 用户=${userId} 套餐=${planKey} 金额=${plan.price}`);
+  return res.status(200).json({ submitUrl, params: { ...params, sign, sign_type: 'MD5' }, orderId });
 }

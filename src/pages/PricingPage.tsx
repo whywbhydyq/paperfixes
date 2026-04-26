@@ -106,10 +106,23 @@ export default function PricingPage() {
     setPayLoading(loadingKey);
     try {
       const data = await createPaymentOrder(selectedPlan.planKey, payType, token);
-      if (data.payUrl && data.orderId) {
+      if (data.submitUrl && data.params && data.orderId) {
         setPendingOrderId(data.orderId);
         setSelectedPlan(null);
-        window.open(data.payUrl, '_blank');
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.submitUrl;
+        form.target = '_blank';
+        for (const [k, v] of Object.entries(data.params)) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = k;
+          input.value = v;
+          form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
       } else {
         alert(data.error || '支付创建失败，请重试');
       }
