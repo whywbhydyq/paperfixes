@@ -90,14 +90,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await tx.smsCode.deleteMany({ where: { phone, expiresAt: { lt: new Date() } } });
         await tx.smsCode.create({ data: { phone, code: newCode, expiresAt } });
       });
-    } catch (err: any) {
-      if (err.message === 'RATE_LIMIT_60S') {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'RATE_LIMIT_60S') {
         return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
       }
-      if (err.message === 'RATE_LIMIT_DAILY') {
+      if (msg === 'RATE_LIMIT_DAILY') {
         return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
       }
-      throw err;
+      console.error('[SMS] 事务错误:', err);
+      return res.status(500).json({ success: false, message: '发送失败，请稍后重试' });
     }
 
     const ok = await sendSms(phone, newCode);

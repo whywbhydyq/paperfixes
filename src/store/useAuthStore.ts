@@ -37,6 +37,7 @@ interface AuthState {
   clearActiveJob: () => void;
   saveInputText: (text: string) => void;
   clearInputText: () => void;
+  checkPlanExpiry: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(

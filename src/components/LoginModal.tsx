@@ -15,7 +15,8 @@ export default function LoginModal() {
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [showPwd, setShowPwd] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [devCode, setDevCode] = useState('');
@@ -44,20 +45,21 @@ export default function LoginModal() {
   const handleSendCode = async () => {
     setError('');
     if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
-    setLoading(true);
+    setSendLoading(true);
     try {
       const data = await sendSmsCode(phone);
       if (data.devCode) setDevCode(data.devCode);
       setCountdown(60);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '发送失败');
-    } finally { setLoading(false); }
+    } finally { setSendLoading(false); }
   };
 
   const handleSmsLogin = async () => {
     setError('');
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
     if (!code) { setError('请输入验证码'); return; }
-    setLoading(true);
+    setLoginLoading(true);
     try {
       const data = await verifySmsCode(phone, code);
       if (data.needsPassword) {
@@ -70,27 +72,28 @@ export default function LoginModal() {
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '登录失败');
-    } finally { setLoading(false); }
+    } finally { setLoginLoading(false); }
   };
 
   const handlePwdLogin = async () => {
     setError('');
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
     if (!password) { setError('请输入密码'); return; }
-    setLoading(true);
+    setLoginLoading(true);
     try {
       const data = await phonePasswordLogin(phone, password);
       login(data.user, data.token);
       closeLoginModal();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '登录失败');
-    } finally { setLoading(false); }
+    } finally { setLoginLoading(false); }
   };
 
   const handleSetPwd = async () => {
     setError('');
     if (newPwd.length < 6) { setError('密码至少6位'); return; }
     if (newPwd !== confirmPwd) { setError('两次密码不一致'); return; }
-    setLoading(true);
+    setLoginLoading(true);
     try {
       await setUserPassword(newPwd, tempToken);
       login(tempUser, tempToken);
@@ -130,9 +133,9 @@ export default function LoginModal() {
               <input type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
                 placeholder="再次输入密码" className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
             </div>
-            <button onClick={handleSetPwd} disabled={loading || !newPwd || !confirmPwd}
+            <button onClick={handleSetPwd} disabled={loginLoading || !newPwd || !confirmPwd}
               className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
-              {loading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />设置中...</span> : '确认设置'}
+              {loginLoading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />设置中...</span> : '确认设置'}
             </button>
           </div>
         </div>
@@ -187,7 +190,7 @@ export default function LoginModal() {
                   <input type="text" value={code} onChange={e => setCode(e.target.value)} maxLength={6}
                     placeholder="请输入验证码"
                     className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
-                  <button onClick={handleSendCode} disabled={countdown > 0 || !phone || loading}
+                  <button onClick={handleSendCode} disabled={countdown > 0 || !/^1[3-9]\d{9}$/.test(phone) || sendLoading}
                     className="shrink-0 rounded-xl bg-primary-50 px-4 text-sm font-medium text-primary-600 hover:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed">
                     {countdown > 0 ? `${countdown}s` : '获取验证码'}
                   </button>
@@ -196,9 +199,9 @@ export default function LoginModal() {
                   <p className="mt-1 text-xs text-amber-600">开发模式验证码：{devCode}</p>
                 )}
               </div>
-              <button onClick={handleSmsLogin} disabled={loading || !phone || !code}
+              <button onClick={handleSmsLogin} disabled={loginLoading || !/^1[3-9]\d{9}$/.test(phone) || code.length !== 6}
                 className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
-                {loading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />登录中...</span> : '登录 / 注册'}
+                {loginLoading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />登录中...</span> : '登录 / 注册'}
               </button>
               <p className="text-center text-xs text-gray-400">新手机号将自动注册</p>
             </>
@@ -217,9 +220,9 @@ export default function LoginModal() {
                   </button>
                 </div>
               </div>
-              <button onClick={handlePwdLogin} disabled={loading || !phone || !password}
+              <button onClick={handlePwdLogin} disabled={loginLoading || !/^1[3-9]\d{9}$/.test(phone) || !password}
                 className="w-full rounded-xl bg-primary-600 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
-                {loading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />登录中...</span> : '登录'}
+                {loginLoading ? <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />登录中...</span> : '登录'}
               </button>
               <p className="text-center text-xs text-gray-400">未设密码？请使用验证码登录</p>
             </>
