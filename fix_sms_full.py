@@ -1,4 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+﻿import os
+
+root = os.path.dirname(os.path.abspath(__file__))
+os.chdir(root)
+
+fpath = os.path.join('api', 'auth', 'sms.ts')
+
+new_content = """import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -29,7 +36,7 @@ async function sendSms(phone: string, code: string): Promise<boolean> {
     return true;
   }
 
-  const signName = process.env.SMS_SIGN_NAME || '速通互联验证码';
+  const signName = process.env.SMS_SIGN_NAME || '\u901f\u901a\u4e92\u8054\u9a8c\u8bc1\u7801';
   const templateCode = process.env.SMS_TEMPLATE_CODE || '100001';
 
   const params: Record<string, string> = {
@@ -67,10 +74,10 @@ async function sendSms(phone: string, code: string): Promise<boolean> {
   try {
     const res = await fetch(url);
     const data = await res.json() as any;
-    console.log('[SMS] 阿里云返回:', JSON.stringify(data));
+    console.log('[SMS] \u963f\u91cc\u4e91\u8fd4\u56de:', JSON.stringify(data));
     return data.Code === 'OK' && data.Success === true;
   } catch (err) {
-    console.error('[SMS] 发送失败:', err);
+    console.error('[SMS] \u53d1\u9001\u5931\u8d25:', err);
     return false;
   }
 }
@@ -81,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { action, phone, code } = req.body || {};
 
   if (!phone || !isValidPhone(phone)) {
-    return res.status(400).json({ error: '请输入正确的手机号' });
+    return res.status(400).json({ error: '\u8bf7\u8f93\u5165\u6b63\u786e\u7684\u624b\u673a\u53f7' });
   }
 
   if (action === 'send') {
@@ -90,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       orderBy: { createdAt: 'desc' },
     });
     if (recent) {
-      return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
+      return res.status(429).json({ success: false, message: '\u53d1\u9001\u592a\u9891\u7e41\uff0c\u8bf760\u79d2\u540e\u518d\u8bd5' });
     }
 
     const dailyCount = await prisma.smsCode.count({
@@ -100,13 +107,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
     if (dailyCount >= 10) {
-      return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
+      return res.status(429).json({ success: false, message: '\u8be5\u624b\u673a\u53f7\u4eca\u65e5\u53d1\u9001\u6b21\u6570\u5df2\u8fbe\u4e0a\u9650\uff0c\u8bf7\u660e\u5929\u518d\u8bd5' });
     }
 
     const newCode = generateCode();
     const ok = await sendSms(phone, newCode);
     if (!ok) {
-      return res.status(500).json({ success: false, message: '验证码发送失败，请稍后重试' });
+      return res.status(500).json({ success: false, message: '\u9a8c\u8bc1\u7801\u53d1\u9001\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5' });
     }
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -116,13 +123,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isDev = !process.env.ALIYUN_ACCESS_KEY_ID;
     return res.status(200).json({
       success: true,
-      message: '验证码已发送',
+      message: '\u9a8c\u8bc1\u7801\u5df2\u53d1\u9001',
       ...(isDev ? { devCode: newCode } : {}),
     });
   }
 
   if (action === 'verify') {
-    if (!code) return res.status(400).json({ error: '请输入验证码' });
+    if (!code) return res.status(400).json({ error: '\u8bf7\u8f93\u5165\u9a8c\u8bc1\u7801' });
 
     const smsCode = await prisma.smsCode.findFirst({
       where: { phone, expiresAt: { gt: new Date() } },
@@ -130,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!smsCode || smsCode.code !== code) {
-      return res.status(400).json({ error: '验证码错误或已过期' });
+      return res.status(400).json({ error: '\u9a8c\u8bc1\u7801\u9519\u8bef\u6216\u5df2\u8fc7\u671f' });
     }
 
     await prisma.smsCode.delete({ where: { id: smsCode.id } });
@@ -161,5 +168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  return res.status(400).json({ error: '无效操作' });
+  return res.status(400).json({ error: '\u65e0\u6548\u64cd\u4f5c' });
 }
+"""
+
+with open(fpath, 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print('[OK] api/auth/sms.ts: full rewrite with dypnsapi + SendSmsVerifyCode + percentEncode')
+print('=== Done ===')
