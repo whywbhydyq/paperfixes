@@ -364,7 +364,7 @@ export default function AdminPage() {
                       <input type="number" value={plan[field] as number}
                         onChange={(e) => {
                           const updated = [...plans];
-                          updated[idx] = { ...updated[idx], [field]: parseInt(e.target.value) || 0 };
+                          updated[idx] = { ...updated[idx], [field]: parseFloat(e.target.value) || 0 };
                           setPlans(updated);
                         }}
                         className="w-full rounded-lg border px-3 py-2 text-sm" />
