@@ -6,6 +6,7 @@ import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import HomePage from './pages/HomePage';
 import ReducePage from './pages/ReducePage';
+import PaymentDonePage from "./pages/PaymentDonePage";
 import PricingPage from './pages/PricingPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/" element={<ReducePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/payment/done" element={<PaymentDonePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>

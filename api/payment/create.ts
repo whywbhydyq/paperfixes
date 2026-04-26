@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     type: payType === 'wxpay' ? 'wxpay' : 'alipay',
     out_trade_no: orderId,
     notify_url:  `${site}/api/payment/notify`,
-    return_url:  `${site}/pricing?from_pay=1&order=${orderId}`,
+    return_url:  `${site}/payment/done`,
     name:  plan.name,
     money: plan.price.toFixed(2),
   };
