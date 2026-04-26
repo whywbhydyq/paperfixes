@@ -55,6 +55,7 @@ async function sendSms(phone: string, code: string): Promise<boolean> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('[SMS API] version=dypnsapi-v2');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { action, phone, code } = req.body || {};
