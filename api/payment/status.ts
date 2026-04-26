@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           console.log('[状态同步] 平台返回:', JSON.stringify(queryData));
 
-          if (queryData.code === 1 && queryData.status === 1) {
+          if (queryData.code === 1 && Number(queryData.status) === 1) {
             const fresh = await prisma.order.findUnique({ where: { id: orderId } });
             if (fresh && fresh.status === 'PAID') {
               return res.status(200).json({ status: 'PAID' });
