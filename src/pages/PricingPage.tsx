@@ -59,6 +59,7 @@ export default function PricingPage() {
       const order = searchParams.get('order');
       if (order) {
         setPendingOrderId(order);
+        console.log('[支付回跳] 开始轮询订单:', order);
       }
       fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});
     }
