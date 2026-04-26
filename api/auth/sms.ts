@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 function generateCode(): string {
   return Math.random().toString().slice(2, 8);
@@ -8,6 +9,49 @@ function generateCode(): string {
 
 function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone);
+}
+
+async function sendSms(phone: string, code: string): Promise<boolean> {
+  const accessKeyId = process.env.ALI_SMS_ACCESS_KEY_ID;
+  const accessKeySecret = process.env.ALI_SMS_ACCESS_KEY_SECRET;
+  const signName = process.env.ALI_SMS_SIGN_NAME;
+  const templateCode = process.env.ALI_SMS_TEMPLATE_CODE;
+
+  if (!accessKeyId || !accessKeySecret) {
+    console.log('[SMS-DEV] ', phone, ' => ', code);
+    return true;
+  }
+
+  const params = new URLSearchParams();
+  params.set('AccessKeyId', accessKeyId);
+  params.set('Action', 'SendSms');
+  params.set('Format', 'JSON');
+  params.set('PhoneNumbers', phone);
+  params.set('RegionId', 'cn-hangzhou');
+  params.set('SignName', signName || '');
+  params.set('SignatureMethod', 'HMAC-SHA1');
+  params.set('SignatureNonce', crypto.randomUUID());
+  params.set('SignatureVersion', '1.0');
+  params.set('TemplateCode', templateCode || '');
+  params.set('TemplateParam', JSON.stringify({ code }));
+  params.set('Timestamp', new Date().toISOString().replace(/\.\d+Z/, 'Z'));
+  params.set('Version', '2017-05-25');
+
+  const sorted = [...params.entries()].sort(([a],[b]) => a.localeCompare(b));
+  const canonicalized = sorted.map(([k,v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  const stringToSign = `GET&${encodeURIComponent('/')}&${encodeURIComponent(canonicalized)}`;
+  const signature = crypto.createHmac('sha1', accessKeySecret + '&').update(stringToSign).digest('base64');
+  params.set('Signature', signature);
+
+  try {
+    const res = await fetch(`https://dysmsapi.aliyuncs.com/?${params.toString()}`);
+    const data = await res.json() as any;
+    console.log('[SMS] 阿里云返回:', JSON.stringify(data));
+    return data.Code === 'OK';
+  } catch (err) {
+    console.error('[SMS] 发送失败:', err);
+    return false;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -34,12 +78,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await prisma.smsCode.deleteMany({ where: { phone } });
     await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
 
-    console.log('[SMS] ', phone, ' => ', newCode);
+    const ok = await sendSms(phone, newCode);
+    if (!ok) {
+      return res.status(500).json({ success: false, message: '验证码发送失败' });
+    }
 
+    const isDev = !process.env.ALI_SMS_ACCESS_KEY_ID;
     return res.status(200).json({
       success: true,
       message: '验证码已发送',
-      devCode: newCode,
+      ...(isDev ? { devCode: newCode } : {}),
     });
   }
 
