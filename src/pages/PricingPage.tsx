@@ -65,6 +65,7 @@ export default function PricingPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartRef = useRef<number>(0);
 
   // 组件卸载时清理定时器
   useEffect(() => {
@@ -82,7 +83,13 @@ export default function PricingPage() {
       checkPayment(true);
       
       // 每 3 秒轮询一次
+      pollStartRef.current = Date.now();
       pollTimerRef.current = setInterval(() => {
+        // 最多轮询5分钟
+        if (Date.now() - pollStartRef.current > 5 * 60 * 1000) {
+          if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
+          return;
+        }
         checkPayment(true);
       }, 3000);
     } else {
