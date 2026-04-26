@@ -1,4 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+﻿import os
+
+root = os.path.dirname(os.path.abspath(__file__))
+
+with open(os.path.join(root, 'api/payment/status.ts'), 'w', encoding='utf-8') as f:
+    f.write("""import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 
@@ -27,7 +32,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ status: 'PAID' });
   }
 
-  // PENDING 且超过10秒：主动查平台
   if (order.status === 'PENDING') {
     const elapsed = Date.now() - new Date(order.createdAt).getTime();
     if (elapsed > 10000) {
@@ -37,26 +41,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base = process.env.EPAY_API;
 
         if (pid && key && base) {
-          const baseUrl = base.replace(/\/?$/, '/');
+          const baseUrl = base.replace(/\\/?$/, '/');
           const queryUrl = `${baseUrl}api.php?act=order&pid=${pid}&key=${key}&out_trade_no=${orderId}`;
           const queryRes = await fetch(queryUrl);
           const queryData = await queryRes.json();
 
           console.log('[状态同步] 平台返回:', JSON.stringify(queryData));
 
-          if (queryData.code === 1 && Number(queryData.status) === 1) {
-            // 原子更新：只有 PENDING 才更新，防并发
-            const updated = await prisma.order.updateMany({
-              where: { id: orderId, status: 'PENDING' },
-              data: { status: 'PAID', paidAt: new Date() },
-            });
+          if (queryData.code === 1 && queryData.status === 1) {
+            const fresh = await prisma.order.findUnique({ where: { id: orderId } });
+            if (fresh && fresh.status === 'PAID') {
+              return res.status(200).json({ status: 'PAID' });
+            }
 
-            if (updated.count > 0) {
-              await prisma.user.update({
+            await prisma.$transaction(async (tx) => {
+              await tx.order.update({
+                where: { id: orderId },
+                data: { status: 'PAID', paidAt: new Date() },
+              });
+              await tx.user.update({
                 where: { id: order.userId },
                 data: { quota: { increment: order.quota }, plan: order.planKey },
               });
-              await prisma.topup.create({
+              await tx.topup.create({
                 data: {
                   userId: order.userId,
                   amount: order.quota,
@@ -65,8 +72,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   note: '在线支付(主动查询)' + (queryData.trade_no ? ' ' + queryData.trade_no : ''),
                 },
               });
-              console.log('[状态同步] ✅ 用户', order.userId, '+', order.quota, '次');
-            }
+            });
+
+            console.log('[状态同步] ✅ 用户', order.userId, '+', order.quota, '次');
             return res.status(200).json({ status: 'PAID' });
           }
         }
@@ -78,3 +86,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(200).json({ status: order.status });
 }
+""")
+print("✅ api/payment/status.ts")

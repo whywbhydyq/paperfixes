@@ -119,7 +119,7 @@ export default function PricingPage() {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = data.submitUrl;
-        form.target = '_blank';
+        form.target = '_self';
         for (const [k, v] of Object.entries(data.params)) {
           const input = document.createElement('input');
           input.type = 'hidden';

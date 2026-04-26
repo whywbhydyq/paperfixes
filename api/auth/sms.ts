@@ -1,245 +1,79 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
-import { signToken } from '../_lib/auth.js';
-import * as crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
-// ============================================================
-// 阿里云号码认证服务 - 签名工具
-// ============================================================
-function percentEncode(str: string): string {
-  return encodeURIComponent(str)
-    .replace(/!/g, '%21')
-    .replace(/'/g, '%27')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/\*/g, '%2A');
+function generateCode(): string {
+  return Math.random().toString().slice(2, 8);
 }
 
-function buildAliyunSign(
-  params: Record<string, string>,
-  accessKeySecret: string,
-  method = 'POST'
-): string {
-  const sorted = Object.keys(params)
-    .sort()
-    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
-    .join('&');
-  const stringToSign = `${method}&${percentEncode('/')}&${percentEncode(sorted)}`;
-  const key = accessKeySecret + '&';
-  return crypto.createHmac('sha1', key).update(stringToSign).digest('base64');
+function isValidPhone(phone: string): boolean {
+  return /^1[3-9]\d{9}$/.test(phone);
 }
 
-async function aliyunRequest(action: string, bizParams: Record<string, string>): Promise<Record<string, unknown>> {
-  const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID || '';
-  const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET || '';
-
-  if (!accessKeyId || !accessKeySecret) {
-    throw new Error('未配置阿里云 AccessKey，请在环境变量中设置 ALIYUN_ACCESS_KEY_ID 和 ALIYUN_ACCESS_KEY_SECRET');
-  }
-
-  const params: Record<string, string> = {
-    Format: 'JSON',
-    Version: '2017-05-25',
-    AccessKeyId: accessKeyId,
-    SignatureMethod: 'HMAC-SHA1',
-    Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    SignatureVersion: '1.0',
-    SignatureNonce: Math.random().toString(36).slice(2),
-    Action: action,
-    ...bizParams,
-  };
-
-  params.Signature = buildAliyunSign(params, accessKeySecret, 'POST');
-
-  const body = Object.entries(params)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-
-  const res = await fetch('https://dypnsapi.aliyuncs.com/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-
-  return res.json() as Promise<Record<string, unknown>>;
-}
-
-// ============================================================
-// 发送验证码
-// ============================================================
-async function sendSmsViaAliyun(phone: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const signName = process.env.ALIYUN_SMS_SIGN_NAME || '';
-    const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE || '';
-    const result = await aliyunRequest('SendSmsVerifyCode', {
-      PhoneNumber: phone,
-      CountryCode: '86',
-      SignName: signName,
-      TemplateCode: templateCode,
-      TemplateParam: '{"code":"##code##","min":"10"}',
-      CodeLength: '6',
-      ValidTime: '600',
-      CodeType: '1',
-      Interval: '60',
-      DuplicatePolicy: '1',
-    });
-
-    console.log('[Aliyun SMS Send]', JSON.stringify(result));
-
-    const model = result.Model as Record<string, unknown> | undefined;
-    const code = (model?.Code ?? result.Code) as string | undefined;
-
-    if (result.Code === 'OK' || code === 'OK') {
-      return { success: true };
-    }
-    return { success: false, error: `短信发送失败: ${result.Message ?? result.Code}` };
-  } catch (err) {
-    console.error('[Aliyun SMS Error]', err);
-    return { success: false, error: '短信服务暂时不可用，请稍后重试' };
-  }
-}
-
-// ============================================================
-// 验证验证码（通过阿里云接口核验）
-// ============================================================
-async function checkSmsViaAliyun(phone: string, code: string): Promise<{ pass: boolean; error?: string }> {
-  try {
-    const result = await aliyunRequest('CheckSmsVerifyCode', {
-      PhoneNumber: phone,
-      CountryCode: '86',
-      VerifyCode: code,
-    });
-
-    console.log('[Aliyun SMS Check]', JSON.stringify(result));
-
-    const model = result.Model as Record<string, unknown> | undefined;
-    if (result.Code === 'OK' && model?.VerifyResult === 'PASS') {
-      return { pass: true };
-    }
-    return { pass: false, error: '验证码错误或已过期' };
-  } catch (err) {
-    console.error('[Aliyun SMS Check Error]', err);
-    return { pass: false, error: '验证服务暂时不可用，请稍后重试' };
-  }
-}
-
-// ============================================================
-// 主 Handler
-// ============================================================
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { action, phone, code } = req.body || {};
 
-  // ---------- 发送验证码 ----------
-  if (action === 'send') {
-    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
-      return res.status(400).json({ error: '请输入正确的手机号' });
-    }
+  if (!phone || !isValidPhone(phone)) {
+    return res.status(400).json({ error: '请输入正确的手机号' });
+  }
 
-    // 60 秒内频控（本地数据库兜底，阿里云也有自己的频控）
+  if (action === 'send') {
+    // 60秒限频
     const recent = await prisma.smsCode.findFirst({
-      where: { phone, createdAt: { gte: new Date(Date.now() - 60 * 1000) } },
+      where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
       orderBy: { createdAt: 'desc' },
     });
     if (recent) {
-      return res.status(429).json({ error: '发送太频繁，请 60 秒后再试' });
+      return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
     }
 
-    // 判断是否配置了阿里云
-    const hasAliyun = !!(process.env.ALIYUN_ACCESS_KEY_ID && process.env.ALIYUN_ACCESS_KEY_SECRET);
+    const newCode = generateCode();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    if (hasAliyun) {
-      // 生产模式：通过阿里云发送，验证也由阿里云完成
-      const { success, error } = await sendSmsViaAliyun(phone);
-      if (!success) {
-        return res.status(500).json({ error: error || '短信发送失败' });
-      }
-      // 记录一条发送记录用于本地频控（code 字段填 'ALIYUN' 占位）
-      await prisma.smsCode.create({
-        data: {
-          phone,
-          code: 'ALIYUN',
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        },
-      });
-      return res.status(200).json({ success: true, message: '验证码已发送，请查收短信' });
-    } else {
-      // 开发模式：本地生成验证码
-      const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
-      console.log(`[SMS DEV] phone=${phone} code=${newCode}`);
-      return res.status(200).json({
-        success: true,
-        message: `验证码已发送（开发模式）`,
-        devCode: newCode,
-      });
-    }
+    await prisma.smsCode.deleteMany({ where: { phone } });
+    await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
+
+    // TODO: 接入真实短信服务商
+    console.log('[SMS] ', phone, ' => ', newCode);
+
+    return res.status(200).json({
+      success: true,
+      message: '验证码已发送',
+      devCode: newCode,
+    });
   }
 
-  // ---------- 验证验证码 ----------
   if (action === 'verify') {
-    if (!phone || !code) {
-      return res.status(400).json({ error: '手机号和验证码不能为空' });
-    }
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      return res.status(400).json({ error: '手机号格式不正确' });
-    }
+    if (!code) return res.status(400).json({ error: '请输入验证码' });
 
-    const hasAliyun = !!(process.env.ALIYUN_ACCESS_KEY_ID && process.env.ALIYUN_ACCESS_KEY_SECRET);
+    const smsCode = await prisma.smsCode.findFirst({
+      where: { phone, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    let verified = false;
-
-    if (hasAliyun) {
-      // 阿里云核验
-      const { pass, error } = await checkSmsViaAliyun(phone, code);
-      if (!pass) {
-        return res.status(401).json({ error: error || '验证码错误或已过期' });
-      }
-      verified = true;
-    } else {
-      // 本地核验
-      const smsRecord = await prisma.smsCode.findFirst({
-        where: { phone, code, used: false, expiresAt: { gte: new Date() } },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!smsRecord) {
-        return res.status(401).json({ error: '验证码错误或已过期' });
-      }
-      await prisma.smsCode.update({ where: { id: smsRecord.id }, data: { used: true } });
-      verified = true;
+    if (!smsCode || smsCode.code !== code) {
+      return res.status(400).json({ error: '验证码错误或已过期' });
     }
 
-    if (!verified) {
-      return res.status(401).json({ error: '验证失败' });
-    }
+    await prisma.smsCode.delete({ where: { id: smsCode.id } });
 
-    // 查找或创建用户
-    let user = await prisma.user.findUnique({ where: { phone } });
+    let user = await prisma.user.findFirst({ where: { phone } });
+
     if (!user) {
-      let freeQuota = 5;
-      try {
-        const cfg = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });
-        if (cfg) {
-          const plans = JSON.parse(cfg.value);
-          const fp = plans.find((p: { planKey: string; active: boolean }) => p.planKey === 'free' && p.active);
-          if (fp) freeQuota = fp.quota;
-        }
-      } catch {}
       user = await prisma.user.create({
-        data: { phone, role: 'user', plan: 'free', quota: freeQuota },
+        data: { phone, plan: 'free', quota: 3, totalUsed: 0, role: 'user' },
       });
     }
 
-    const token = signToken(user.id);
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '30d' });
+
     return res.status(200).json({
       user: {
         id: user.id,
-        email: user.email,
         phone: user.phone,
+        email: user.email,
         wechatName: user.wechatName,
         role: user.role,
         plan: user.plan,
@@ -247,8 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         totalUsed: user.totalUsed,
       },
       token,
+      needsPassword: !user.password,
     });
   }
 
-  return res.status(400).json({ error: '缺少 action 参数' });
+  return res.status(400).json({ error: '无效操作' });
 }

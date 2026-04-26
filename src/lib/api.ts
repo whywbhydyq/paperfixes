@@ -50,7 +50,7 @@ export async function sendSmsCode(phone: string) {
 }
 
 export async function verifySmsCode(phone: string, code: string) {
-  return request<{ user: any; token: string }>(
+  return request<{ user: any; token: string; needsPassword?: boolean }>(
     '/api/auth/sms',
     { method: 'POST', body: JSON.stringify({ action: 'verify', phone, code }) }
   );
@@ -105,6 +105,20 @@ export interface TopupRecord {
   planKey: string;
   note: string | null;
   createdAt: string;
+}
+
+export async function phonePasswordLogin(phone: string, password: string) {
+  return request<{ user: any; token: string }>('/api/auth/phone-login', {
+    method: 'POST',
+    body: JSON.stringify({ phone, password }),
+  });
+}
+
+export async function setUserPassword(password: string, token: string | null) {
+  return request<{ success: boolean }>('/api/auth/set-password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  }, token);
 }
 
 export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
