@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sign = genSign(params, key);
   // 确保 base 末尾有 /
   const baseUrl = base.replace(/\/?$/, '/');
-  const payUrl = `${baseUrl}submit.php?${new URLSearchParams({
+  const payUrl = `${baseUrl}submit?${new URLSearchParams({
     ...params, sign, sign_type: 'MD5',
   }).toString()}`;
 
