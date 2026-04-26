@@ -9,7 +9,11 @@ function genSign(params: Record<string, string>, key: string): string {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join('&');
-  return createHash('md5').update(str + key).digest('hex');
+  const signStr = str + '&key=' + key;
+  console.log('[支付] 签名字符串:', signStr);
+  const sign = createHash('md5').update(signStr).digest('hex');
+  console.log('[支付] 签名结果:', sign);
+  return sign;
 }
 
 async function getPlanConfig(planKey: string) {
