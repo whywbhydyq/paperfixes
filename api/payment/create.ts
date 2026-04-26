@@ -76,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return_url:  `${site}/pricing?from_pay=1&order=${orderId}`,
     name:  plan.name,
     money: plan.price.toFixed(2),
+    timestamp: Math.floor(Date.now() / 1000).toString(),
   };
 
   const sign = genSign(params, key);
