@@ -1,12 +1,18 @@
-import { createHmac, randomUUID } from 'crypto';
+﻿import os
+
+root = os.path.dirname(os.path.abspath(__file__))
+os.chdir(root)
+
+fpath = os.path.join('api', '_lib', 'sms.ts')
+new_content = """import { createHmac, randomUUID } from 'crypto';
 
 function percentEncode(str: string): string {
   return encodeURIComponent(str)
     .replace(/!/g, '%21')
     .replace(/'/g, '%27')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/\*/g, '%2A');
+    .replace(/\\(/g, '%28')
+    .replace(/\\)/g, '%29')
+    .replace(/\\*/g, '%2A');
 }
 
 export async function sendSms(phone: string, code: string): Promise<boolean> {
@@ -14,11 +20,11 @@ export async function sendSms(phone: string, code: string): Promise<boolean> {
   const accessKeySecret = (process.env.ALIYUN_ACCESS_KEY_SECRET || '').trim();
 
   if (!accessKeyId || !accessKeySecret) {
-    console.log(`[SMS] 开发模式：未配置阿里云密钥，验证码 = ${code}`);
+    console.log(`[SMS] \u5f00\u53d1\u6a21\u5f0f\uff1a\u672a\u914d\u7f6e\u963f\u91cc\u4e91\u5bc6\u94a5\uff0c\u9a8c\u8bc1\u7801 = ${code}`);
     return true;
   }
 
-  const signName = process.env.SMS_SIGN_NAME || '速通互联验证码';
+  const signName = process.env.SMS_SIGN_NAME || '\u901f\u901a\u4e92\u8054\u9a8c\u8bc1\u7801';
   const templateCode = process.env.SMS_TEMPLATE_CODE || '100001';
 
   const params: Record<string, string> = {
@@ -36,7 +42,7 @@ export async function sendSms(phone: string, code: string): Promise<boolean> {
     SignatureVersion: '1.0',
     TemplateCode: templateCode,
     TemplateParam: JSON.stringify({ code, min: '5' }),
-    Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    Timestamp: new Date().toISOString().replace(/\\.\\d{3}Z$/, 'Z'),
     ValidTime: '300',
     Version: '2017-05-25',
   };
@@ -61,13 +67,20 @@ export async function sendSms(phone: string, code: string): Promise<boolean> {
   try {
     const res = await fetch(url);
     const data = await res.json();
-    console.log('[SMS] 阿里云返回:', JSON.stringify(data));
+    console.log('[SMS] \u963f\u91cc\u4e91\u8fd4\u56de:', JSON.stringify(data));
 
     if (data.Code === 'OK' && data.Success) return true;
-    console.error(`[SMS] 发送失败: ${data.Code} - ${data.Message}`);
+    console.error(`[SMS] \u53d1\u9001\u5931\u8d25: ${data.Code} - ${data.Message}`);
     return false;
   } catch (err) {
-    console.error('[SMS] 请求异常:', err);
+    console.error('[SMS] \u8bf7\u6c42\u5f02\u5e38:', err);
     return false;
   }
 }
+"""
+
+with open(fpath, 'w', encoding='utf-8') as f:
+    f.write(new_content)
+print('[OK] api/_lib/sms.ts: switched to dypnsapi.aliyuncs.com + SendSmsVerifyCode')
+
+print('\n=== Batch 8 done ===')
