@@ -11,9 +11,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const user = await prisma.user.findFirst({ where: { phone } });
   if (!user) return res.status(400).json({ error: '手机号未注册' });
-  if (!user.password) return res.status(400).json({ error: '该账号尚未设置密码，请先用验证码登录' });
+  if (!user.passwordHash) return res.status(400).json({ error: '该账号尚未设置密码，请先用验证码登录' });
 
-  const valid = await bcrypt.compare(password, user.password);
+  const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(400).json({ error: '密码错误' });
 
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '30d' });

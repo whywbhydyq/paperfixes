@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const hash = await bcrypt.hash(password, 10);
   await prisma.user.update({
     where: { id: userId },
-    data: { password: hash },
+    data: { passwordHash: hash },
   });
 
   return res.status(200).json({ success: true });

@@ -20,7 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (action === 'send') {
-    // 60秒限频
     const recent = await prisma.smsCode.findFirst({
       where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
       orderBy: { createdAt: 'desc' },
@@ -35,7 +34,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await prisma.smsCode.deleteMany({ where: { phone } });
     await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
 
-    // TODO: 接入真实短信服务商
     console.log('[SMS] ', phone, ' => ', newCode);
 
     return res.status(200).json({
@@ -81,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         totalUsed: user.totalUsed,
       },
       token,
-      needsPassword: !user.password,
+      needsPassword: !user.passwordHash,
     });
   }
 
