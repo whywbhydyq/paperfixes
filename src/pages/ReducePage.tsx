@@ -142,7 +142,7 @@ export default function ReducePage() {
               <span className="text-sm font-semibold text-gray-900">{isEditable ? '原文输入' : '原文'}</span>
               {isEditable && (
                 <span className={`ml-auto text-xs font-medium ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
-                  {countChars(text)} / {MAX_CHARS} 字{isOverLimit && '（超出限制）'}
+                  {countChars(text)} 字{isOverLimit && '（超出限制）'}
                 </span>
               )}
             </div>

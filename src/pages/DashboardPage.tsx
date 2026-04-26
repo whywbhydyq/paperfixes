@@ -395,7 +395,7 @@ export default function DashboardPage() {
                   {pwdMsg && <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{pwdMsg}</div>}
                   <button
                     type="submit"
-                    disabled={pwdLoading || !newPassword || !confirmPassword || (!!user?.passwordHash && !oldPassword)}
+                    disabled={pwdLoading || !newPassword || !confirmPassword || (!!user?.hasPassword && !oldPassword)}
                     className="flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {pwdLoading ? <><Loader2 size={16} className="animate-spin" />修改中...</> : '确认修改'}

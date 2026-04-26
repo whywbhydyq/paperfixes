@@ -155,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         plan: user.plan,
         quota: user.quota,
         totalUsed: user.totalUsed,
+        hasPassword: !!user.passwordHash,
       },
       token,
       needsPassword: !user.passwordHash,

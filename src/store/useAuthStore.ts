@@ -10,6 +10,7 @@ export interface User {
   plan: string;
   quota: number;
   totalUsed: number;
+  hasPassword?: boolean;
 }
 
 interface ActiveJob {
