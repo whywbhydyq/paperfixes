@@ -3,13 +3,17 @@ import { createHash } from 'crypto';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 
+// V1 MD5 签名：md5(排序参数拼接 + KEY)，直接拼接不加 &key=
 function genSign(params: Record<string, string>, key: string): string {
   const str = Object.entries(params)
     .filter(([k, v]) => v !== '' && v !== undefined && v !== null && k !== 'sign' && k !== 'sign_type')
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join('&');
-  return createHash('md5').update(str + '&key=' + key).digest('hex');
+  const sign = createHash('md5').update(str + key).digest('hex');
+  console.log('[支付] 待签名字符串:', str + key);
+  console.log('[支付] 签名结果:', sign);
+  return sign;
 }
 
 async function getPlanConfig(planKey: string) {
@@ -44,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const key  = process.env.EPAY_KEY;
   const base = process.env.EPAY_API;
   if (!pid || !key || !base) {
-    console.error('[支付] 环境变量缺失 EPAY_PID/EPAY_KEY/EPAY_API');
+    console.error('[支付] 环境变量缺失');
     return res.status(500).json({ error: '支付配置错误' });
   }
 
@@ -61,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: '创建订单失败' });
   }
 
+  // V1 参数：不要 timestamp
   const params: Record<string, string> = {
     pid,
     type: payType === 'wxpay' ? 'wxpay' : 'alipay',
@@ -69,12 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return_url:  `${site}/pricing?from_pay=1&order=${orderId}`,
     name:  plan.name,
     money: plan.price.toFixed(2),
-    timestamp: Math.floor(Date.now() / 1000).toString(),
   };
 
   const sign = genSign(params, key);
   const baseUrl = base.replace(/\/?$/, '/');
-  const submitUrl = `${baseUrl}submit`;
+  // V1 提交地址：submit.php
+  const submitUrl = `${baseUrl}submit.php`;
 
   console.log(`[支付] 订单=${orderId} 用户=${userId} 套餐=${planKey} 金额=${plan.price}`);
   return res.status(200).json({ submitUrl, params: { ...params, sign, sign_type: 'MD5' }, orderId });
