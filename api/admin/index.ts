@@ -5,7 +5,7 @@ import { isAdminUser } from '../_lib/constants.js';
 
 const DEFAULT_PLANS = [
   {
-    planKey: 'free', name: '免费体验', price: 0, quota: 5,
+    planKey: 'free', name: '免费体验', price: 0, quota: 2,
     minChars: 40, maxChars: 500,
     features: ['5 次免费改写额度', '单次最多 500 字', '标准改写质量', '邮箱/手机登录'],
     popular: false, active: true, sortOrder: 0,

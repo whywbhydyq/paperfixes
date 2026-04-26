@@ -32,11 +32,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const limits = await getPlanLimits(user.plan);
   const trimmed = text.trim();
+  const charCount = trimmed.replace(/\s/g, '').length;
 
-  if (trimmed.length < limits.minChars) {
+  if (charCount < limits.minChars) {
     return res.status(400).json({ error: `文本太短，请至少输入${limits.minChars}个字符` });
   }
-  if (trimmed.length > limits.maxChars) {
+  if (charCount > limits.maxChars) {
     return res.status(400).json({ error: `当前套餐单次最多${limits.maxChars}字，请精简后重试或升级套餐` });
   }
 
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const job = await tx.job.create({
-      data: { userId, inputText: trimmed, inputLen: trimmed.length, status: 'PENDING' },
+      data: { userId, inputText: trimmed, inputLen: charCount, status: 'PENDING' },
     });
 
     return { job, user: updatedUser };

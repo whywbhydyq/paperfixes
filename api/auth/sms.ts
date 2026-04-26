@@ -64,48 +64,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (action === 'send') {
-    const newCode = generateCode();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        const recent = await tx.smsCode.findFirst({
-          where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (recent) {
-          throw new Error('RATE_LIMIT_60S');
-        }
-
-        const dailyCount = await tx.smsCode.count({
-          where: {
-            phone,
-            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-          },
-        });
-        if (dailyCount >= 10) {
-          throw new Error('RATE_LIMIT_DAILY');
-        }
-
-        await tx.smsCode.deleteMany({ where: { phone, expiresAt: { lt: new Date() } } });
-        await tx.smsCode.create({ data: { phone, code: newCode, expiresAt } });
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'RATE_LIMIT_60S') {
-        return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
-      }
-      if (msg === 'RATE_LIMIT_DAILY') {
-        return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
-      }
-      console.error('[SMS] 事务错误:', err);
-      return res.status(500).json({ success: false, message: '发送失败，请稍后重试' });
+    const recent = await prisma.smsCode.findFirst({
+      where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent) {
+      return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
     }
 
+    const dailyCount = await prisma.smsCode.count({
+      where: {
+        phone,
+        createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    });
+    if (dailyCount >= 10) {
+      return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
+    }
+
+    const newCode = generateCode();
     const ok = await sendSms(phone, newCode);
     if (!ok) {
-      return res.status(500).json({ success: false, message: '验证码发送失败' });
+      return res.status(500).json({ success: false, message: '验证码发送失败，请稍后重试' });
     }
+
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await prisma.smsCode.deleteMany({ where: { phone, expiresAt: { lt: new Date() } } });
+    await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
 
     const isDev = !process.env.ALIYUN_ACCESS_KEY_ID;
     return res.status(200).json({
@@ -133,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!user) {
       user = await prisma.user.create({
-        data: { phone, plan: 'free', quota: 3, totalUsed: 0, role: 'user' },
+        data: { phone, plan: 'free', quota: 2, totalUsed: 0, role: 'user' },
       });
     }
 
