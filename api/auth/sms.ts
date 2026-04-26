@@ -64,19 +64,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (action === 'send') {
-    const recent = await prisma.smsCode.findFirst({
-      where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (recent) {
-      return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
-    }
-
     const newCode = generateCode();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await prisma.smsCode.deleteMany({ where: { phone } });
-    await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
+    try {
+      await prisma.$transaction(async (tx) => {
+        const recent = await tx.smsCode.findFirst({
+          where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (recent) {
+          throw new Error('RATE_LIMIT_60S');
+        }
+
+        const dailyCount = await tx.smsCode.count({
+          where: {
+            phone,
+            createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+        });
+        if (dailyCount >= 10) {
+          throw new Error('RATE_LIMIT_DAILY');
+        }
+
+        await tx.smsCode.deleteMany({ where: { phone, expiresAt: { lt: new Date() } } });
+        await tx.smsCode.create({ data: { phone, code: newCode, expiresAt } });
+      });
+    } catch (err: any) {
+      if (err.message === 'RATE_LIMIT_60S') {
+        return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
+      }
+      if (err.message === 'RATE_LIMIT_DAILY') {
+        return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
+      }
+      throw err;
+    }
 
     const ok = await sendSms(phone, newCode);
     if (!ok) {

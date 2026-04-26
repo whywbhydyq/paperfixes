@@ -10,7 +10,7 @@ export default function Navbar() {
   const location = useLocation();
   const { user, token, isLoggedIn, logout, openLoginModal, updateQuota } = useAuthStore();
 
-  const isAdmin = isLoggedIn && user && (user.role === 'admin' || user.email === '2922027393@qq.com');
+  const isAdmin = isLoggedIn && user && user.role === 'admin';
 
   useEffect(() => {
     if (isLoggedIn && token) {

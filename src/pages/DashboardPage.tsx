@@ -5,20 +5,7 @@ import {
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { fetchQuota, fetchTopups, type TopupRecord } from '../lib/api';
-
-const API_BASE = import.meta.env.VITE_API_BASE || '';
-
-interface JobRecord {
-  id: string;
-  inputText: string;
-  outputText: string | null;
-  status: string;
-  inputLen: number | null;
-  outputLen: number | null;
-  createdAt: string;
-  doneAt: string | null;
-}
+import { fetchQuota, fetchTopups, fetchJobs, changePassword, type TopupRecord, type JobRecord } from '../lib/api';
 
 type ActiveTab = 'history' | 'topups' | 'password';
 
@@ -67,13 +54,8 @@ export default function DashboardPage() {
     if (!token) return;
     setJobsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user?action=jobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setJobs(data.jobs || []);
-      }
+      const data = await fetchJobs(token);
+      setJobs(data.jobs || []);
     } catch {}
     setJobsLoading(false);
   };
@@ -103,16 +85,7 @@ export default function DashboardPage() {
     if (newPassword !== confirmPassword) { setPwdError('两次密码不一致'); return; }
     setPwdLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user?action=password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ oldPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '修改失败');
+      await changePassword(oldPassword, newPassword, token);
       setPwdMsg('密码修改成功');
       setOldPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (err: unknown) {
@@ -422,7 +395,7 @@ export default function DashboardPage() {
                   {pwdMsg && <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{pwdMsg}</div>}
                   <button
                     type="submit"
-                    disabled={pwdLoading || !oldPassword || !newPassword || !confirmPassword}
+                    disabled={pwdLoading || !newPassword || !confirmPassword}
                     className="flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-primary-700 disabled:opacity-50"
                   >
                     {pwdLoading ? <><Loader2 size={16} className="animate-spin" />修改中...</> : '确认修改'}

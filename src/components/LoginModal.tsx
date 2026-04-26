@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Phone, Lock, Eye, EyeOff, Loader2, MessageSquare, KeyRound } from 'lucide-react';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore, type User } from '../store/useAuthStore';
 import { sendSmsCode, verifySmsCode, phonePasswordLogin, setUserPassword } from '../lib/api';
 
 type Tab = 'sms' | 'password';
@@ -21,7 +21,7 @@ export default function LoginModal() {
   const [devCode, setDevCode] = useState('');
   const [needSetPwd, setNeedSetPwd] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
-  const [tempUser, setTempUser] = useState<any>(null);
+  const [tempUser, setTempUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (countdown > 0) {

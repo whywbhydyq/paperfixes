@@ -61,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (user.passwordHash) {
       if (!oldPassword) return res.status(400).json({ error: '请输入当前密码' });
       const valid = await comparePassword(oldPassword, user.passwordHash);
-      if (!valid) return res.status(401).json({ error: '当前密码不正确' });
+      if (!valid) return res.status(400).json({ error: '当前密码不正确' });
     }
     const newHash = await hashPassword(newPassword);
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } });

@@ -1,21 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createHash } from 'crypto';
 import prisma from '../_lib/prisma.js';
+import { genSign } from '../_lib/payment.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 
 // V1 MD5 签名：md5(排序参数拼接 + KEY)，直接拼接不加 &key=
-function genSign(params: Record<string, string>, key: string): string {
-  const str = Object.entries(params)
-    .filter(([k, v]) => v !== '' && v !== undefined && v !== null && k !== 'sign' && k !== 'sign_type')
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}=${v}`)
-    .join('&');
-  const sign = createHash('md5').update(str + key).digest('hex');
-  console.log('[支付] 待签名字符串:', str + key);
-  console.log('[支付] 签名结果:', sign);
-  return sign;
-}
-
 async function getPlanConfig(planKey: string) {
   try {
     const config = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });

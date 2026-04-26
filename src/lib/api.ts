@@ -6,9 +6,11 @@
  * 3. 获取结果
  */
 
+import type { User } from '../store/useAuthStore';
+
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null
@@ -21,25 +23,18 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    const { useAuthStore } = await import('../store/useAuthStore');
+    const store = useAuthStore.getState();
+    store.logout();
+    store.openLoginModal();
+    throw new Error('登录已过期，请重新登录');
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: '网络错误' }));
     throw new Error(data.error || `请求失败 (${res.status})`);
   }
   return res.json();
-}
-
-export async function registerWithEmail(email: string, password: string) {
-  return request<{ user: any; token: string }>('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function loginWithEmail(email: string, password: string) {
-  return request<{ user: any; token: string }>('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
 }
 
 export async function sendSmsCode(phone: string) {
@@ -50,7 +45,7 @@ export async function sendSmsCode(phone: string) {
 }
 
 export async function verifySmsCode(phone: string, code: string) {
-  return request<{ user: any; token: string; needsPassword?: boolean }>(
+  return request<{ user: User; token: string; needsPassword?: boolean }>(
     '/api/auth/sms',
     { method: 'POST', body: JSON.stringify({ action: 'verify', phone, code }) }
   );
@@ -108,7 +103,7 @@ export interface TopupRecord {
 }
 
 export async function phonePasswordLogin(phone: string, password: string) {
-  return request<{ user: any; token: string }>('/api/auth/phone-login', {
+  return request<{ user: User; token: string }>('/api/auth/phone-login', {
     method: 'POST',
     body: JSON.stringify({ phone, password }),
   });
@@ -126,6 +121,32 @@ export async function fetchTopups(token: string | null): Promise<{ topups: Topup
 }
 
 // ==================== 支付相关 API ====================
+
+export interface JobRecord {
+  id: string;
+  inputText: string;
+  outputText: string | null;
+  status: string;
+  inputLen: number | null;
+  outputLen: number | null;
+  createdAt: string;
+  doneAt: string | null;
+}
+
+export async function fetchJobs(token: string | null): Promise<{ jobs: JobRecord[] }> {
+  return request<{ jobs: JobRecord[] }>('/api/user?action=jobs', {}, token);
+}
+
+export async function changePassword(
+  oldPassword: string,
+  newPassword: string,
+  token: string | null
+): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>('/api/user?action=password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
+  }, token);
+}
 
 export interface CreatePaymentResponse {
   submitUrl?: string;

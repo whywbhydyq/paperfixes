@@ -21,8 +21,6 @@ interface PlanConfig {
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-let _cachedPlans: PlanConfig[] | null = null;
-
 export default function PricingPage() {
   const { isLoggedIn, openLoginModal, token, updateQuota } = useAuthStore();
   const [searchParams] = useSearchParams();
@@ -31,16 +29,10 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (_cachedPlans) {
-      setPlans(_cachedPlans);
-      setLoading(false);
-      return;
-    }
     fetch(`${API_BASE}/api/admin?resource=config`)
       .then(r => r.json())
       .then(d => {
         const plans = d.plans || [];
-        _cachedPlans = plans;
         setPlans(plans);
         setLoading(false);
       })
@@ -67,15 +59,6 @@ export default function PricingPage() {
   
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
-
-  // 组件卸载时清理定时器
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-      }
-    };
-  }, []);
 
   // 自动轮询支付状态
   useEffect(() => {

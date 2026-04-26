@@ -5,23 +5,10 @@ import {
   FileText, Users, Settings, Save, RefreshCw, ArrowLeft,
   Shield, Edit3, Check, X, Plus,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+import { request } from '../lib/api';
 
 async function apiFetch(path: string, token: string | null, options: RequestInit = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string>),
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!res.ok) {
-    const d = await res.json().catch(() => ({ error: '请求失败' }));
-    throw new Error(d.error || `错误 ${res.status}`);
-  }
-  return res.json();
+  return request(path, options, token);
 }
 
 interface PlanConfig {
@@ -55,7 +42,7 @@ export default function AdminPage() {
   const [topupNote, setTopupNote] = useState('');
   const [topupLoading, setTopupLoading] = useState(false);
 
-  const isAdmin = isLoggedIn && user && (user.role === 'admin' || user.email === '2922027393@qq.com');
+  const isAdmin = isLoggedIn && user && user.role === 'admin';
 
   const loadUsers = useCallback(async () => {
     setLoading(true);

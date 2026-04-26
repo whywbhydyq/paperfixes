@@ -19,7 +19,7 @@ const DEFAULT_PLANS = [
   {
     planKey: 'pro', name: '专业套餐', price: 99, quota: 300,
     minChars: 40, maxChars: 5000,
-    features: ['300 次改写额度', '单次最多 5000 字', '最高优先级处理', '邮箱/手机登录', '90 天有效'],
+    features: ['300 次改写额度', '单次最多 5000 字', '最高优先级处理', '邮箱/手机登录', '30 天有效'],
     popular: false, active: true, sortOrder: 2,
   },
 ];
@@ -50,7 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (resource === 'config') {
     if (req.method === 'GET') {
       const plans = await ensureDefaultConfig();
-      return res.status(200).json({ plans });
+      const auth = await checkAdmin(req);
+      if (auth.ok) {
+        return res.status(200).json({ plans });
+      }
+      return res.status(200).json({ plans: plans.filter((p: { active: boolean }) => p.active) });
     }
     if (req.method === 'PUT') {
       const auth = await checkAdmin(req);

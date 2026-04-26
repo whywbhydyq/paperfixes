@@ -37,6 +37,8 @@ model Job {
   error      String?
   createdAt  DateTime  @default(now())
   doneAt     DateTime?
+
+  @@index([userId])
 }
 
 model Topup {
@@ -48,6 +50,8 @@ model Topup {
   planKey   String
   note      String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Config {
@@ -62,6 +66,8 @@ model SmsCode {
   used      Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([phone, expiresAt])
 }
 
 model Order {
@@ -74,4 +80,6 @@ model Order {
   status    String    @default("PENDING")
   paidAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
