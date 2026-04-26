@@ -1,3 +1,4 @@
-﻿User-agent: *
+User-agent: *
 Allow: /
-Sitemap: https://paperfixes.com/sitemap.xml
+
+Sitemap: https://www.paperfixes.com/sitemap.xml
