@@ -28,6 +28,7 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: '开始改写', matchExact: true },
     { to: '/home', label: '了解更多' },
+    { to: '/blog', label: '专题指南' },
     { to: '/pricing', label: '定价' },
     { to: '/dashboard?tab=history', label: '修改历史' },
   ];
@@ -35,7 +36,7 @@ export default function Navbar() {
   const isActive = (link: typeof navLinks[0]) => {
     if (link.matchExact) return location.pathname === '/';
     const linkPath = link.to.split('?')[0];
-    return location.pathname === linkPath;
+    return location.pathname === linkPath || (linkPath === '/blog' && location.pathname.startsWith('/blog/'));
   };
 
   return (
