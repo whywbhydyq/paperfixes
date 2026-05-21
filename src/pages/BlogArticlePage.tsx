@@ -1,6 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CalendarDays, Clock, Gift, Home, Tag } from 'lucide-react';
-import { getArticleBySlug, getRelatedArticles } from '../data/articles';
+import { getRelatedArticles } from '../data/articles';
+import { getArticleByPublicSlug, getArticlePath } from '../data/articleSlugs';
 
 function TrialCard() {
   return (
@@ -28,7 +29,7 @@ function InlineRecommendation({ currentSlug }: { currentSlug: string }) {
       <div className="text-sm font-semibold text-amber-900">延伸阅读</div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {related.map((item) => (
-          <Link key={item.slug} to={`/blog/${item.slug}`} className="rounded-xl bg-white p-4 text-sm font-medium leading-6 text-gray-800 shadow-sm transition-colors hover:text-primary-700">
+          <Link key={item.slug} to={getArticlePath(item)} className="rounded-xl bg-white p-4 text-sm font-medium leading-6 text-gray-800 shadow-sm transition-colors hover:text-primary-700">
             {item.title}
           </Link>
         ))}
@@ -39,7 +40,7 @@ function InlineRecommendation({ currentSlug }: { currentSlug: string }) {
 
 export default function BlogArticlePage() {
   const { slug } = useParams();
-  const article = getArticleBySlug(slug);
+  const article = getArticleByPublicSlug(slug);
 
   if (!article) return <Navigate to="/blog" replace />;
 
@@ -128,7 +129,7 @@ export default function BlogArticlePage() {
               <h2 className="font-bold text-gray-900">相关推荐</h2>
               <div className="mt-4 space-y-4">
                 {relatedArticles.map((related) => (
-                  <Link key={related.slug} to={`/blog/${related.slug}`} className="block rounded-xl border border-gray-100 p-4 transition-colors hover:border-primary-100 hover:bg-primary-50/40">
+                  <Link key={related.slug} to={getArticlePath(related)} className="block rounded-xl border border-gray-100 p-4 transition-colors hover:border-primary-100 hover:bg-primary-50/40">
                     <div className="text-xs text-primary-600">{related.category}</div>
                     <div className="mt-1 text-sm font-semibold leading-6 text-gray-900">{related.title}</div>
                   </Link>
