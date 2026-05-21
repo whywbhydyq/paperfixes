@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Phone, Lock, Eye, EyeOff, Loader2, MessageSquare, KeyRound } from 'lucide-react';
 import { useAuthStore, type User } from '../store/useAuthStore';
 import { sendSmsCode, verifySmsCode, phonePasswordLogin, setUserPassword } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 type Tab = 'sms' | 'password';
 
@@ -44,14 +45,18 @@ export default function LoginModal() {
 
   const handleSendCode = async () => {
     setError('');
-    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
+    if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); trackEvent('send_code_invalid_phone'); return; }
+    trackEvent('send_code_attempt', { source: 'login_modal' });
     setSendLoading(true);
     try {
       const data = await sendSmsCode(phone);
       if (data.devCode) setDevCode(data.devCode);
       setCountdown(60);
+      trackEvent('send_code_success', { source: 'login_modal' });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '发送失败');
+      const message = err instanceof Error ? err.message : '发送失败';
+      trackEvent('send_code_fail', { error: message });
+      setError(message);
     } finally { setSendLoading(false); }
   };
 
@@ -59,19 +64,25 @@ export default function LoginModal() {
     setError('');
     if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
     if (!code) { setError('请输入验证码'); return; }
+    trackEvent('sms_verify_attempt');
     setLoginLoading(true);
     try {
       const data = await verifySmsCode(phone, code);
+      trackEvent('sms_verify_success', { needs_password: !!data.needsPassword });
       if (data.needsPassword) {
+        trackEvent('password_setup_required', { plan: data.user.plan, quota: data.user.quota });
         setTempToken(data.token);
         setTempUser(data.user);
         setNeedSetPwd(true);
       } else {
+        trackEvent('login_success', { method: 'sms', plan: data.user.plan, quota: data.user.quota });
         login(data.user, data.token);
         closeLoginModal();
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '登录失败');
+      const message = err instanceof Error ? err.message : '登录失败';
+      trackEvent('sms_verify_fail', { error: message });
+      setError(message);
     } finally { setLoginLoading(false); }
   };
 
@@ -79,13 +90,17 @@ export default function LoginModal() {
     setError('');
     if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入正确的手机号'); return; }
     if (!password) { setError('请输入密码'); return; }
+    trackEvent('password_login_attempt');
     setLoginLoading(true);
     try {
       const data = await phonePasswordLogin(phone, password);
+      trackEvent('login_success', { method: 'password', plan: data.user.plan, quota: data.user.quota });
       login(data.user, data.token);
       closeLoginModal();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '登录失败');
+      const message = err instanceof Error ? err.message : '登录失败';
+      trackEvent('password_login_fail', { error: message });
+      setError(message);
     } finally { setLoginLoading(false); }
   };
 
@@ -94,13 +109,18 @@ export default function LoginModal() {
     if (newPwd.length < 6) { setError('密码至少6位'); return; }
     if (newPwd !== confirmPwd) { setError('两次密码不一致'); return; }
     if (!tempUser || !tempToken) { setError('登录状态异常，请重新获取验证码'); return; }
+    trackEvent('password_setup_attempt');
     setLoginLoading(true);
     try {
       await setUserPassword(newPwd, tempToken);
+      trackEvent('register_success', { method: 'sms', plan: tempUser.plan, quota: tempUser.quota });
+      trackEvent('login_success', { method: 'sms_password_setup', plan: tempUser.plan, quota: tempUser.quota });
       login({ ...tempUser, hasPassword: true }, tempToken);
       closeLoginModal();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '设置失败');
+      const message = err instanceof Error ? err.message : '设置失败';
+      trackEvent('password_setup_fail', { error: message });
+      setError(message);
     } finally { setLoginLoading(false); }
   };
 
@@ -158,11 +178,11 @@ export default function LoginModal() {
 
         {/* Tab */}
         <div className="flex border-b border-gray-100">
-          <button onClick={() => { setTab('sms'); setError(''); }}
+          <button onClick={() => { setTab('sms'); setError(''); trackEvent('login_tab_switch', { tab: 'sms' }); }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'sms' ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
             <MessageSquare size={14} /> 验证码登录
           </button>
-          <button onClick={() => { setTab('password'); setError(''); }}
+          <button onClick={() => { setTab('password'); setError(''); trackEvent('login_tab_switch', { tab: 'password' }); }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'password' ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
             <KeyRound size={14} /> 密码登录
           </button>
