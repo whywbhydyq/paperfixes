@@ -1,11 +1,36 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Clock, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock, Search, Sparkles, X } from 'lucide-react';
 import { articles } from '../data/articles';
 import { getArticlePath } from '../data/articleSlugs';
 
 const categories = Array.from(new Set(articles.map((article) => article.category)));
 
 export default function BlogListPage() {
+  const [activeCategory, setActiveCategory] = useState('全部');
+  const [query, setQuery] = useState('');
+
+  const filteredArticles = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    return articles.filter((article) => {
+      const matchesCategory = activeCategory === '全部' || article.category === activeCategory;
+      const searchable = [
+        article.title,
+        article.description,
+        article.keywords,
+        article.category,
+        article.relatedKeywords.join(','),
+      ].join(' ').toLowerCase();
+      const matchesQuery = !keyword || searchable.includes(keyword);
+      return matchesCategory && matchesQuery;
+    });
+  }, [activeCategory, query]);
+
+  const resetFilters = () => {
+    setActiveCategory('全部');
+    setQuery('');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50/80 to-white">
       <section className="border-b border-gray-100 bg-white">
@@ -27,51 +52,98 @@ export default function BlogListPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <span key={category} className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600">
-              {category}
-            </span>
-          ))}
+        <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1">
+              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索：AI论文降重、AIGC检测、ChatGPT论文检测..."
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-10 text-sm outline-none transition-colors focus:border-primary-300 focus:bg-white focus:ring-2 focus:ring-primary-100"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="清空搜索"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <div className="text-sm text-gray-500">
+              共 <span className="font-semibold text-primary-600">{filteredArticles.length}</span> 篇专题
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {['全部', ...categories].map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeCategory === category
+                    ? 'border-primary-200 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {articles.map((article) => (
-            <Link
-              key={article.slug}
-              to={getArticlePath(article)}
-              className="group flex min-h-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-100 hover:shadow-lg hover:shadow-primary-50"
-            >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
-                  {article.category}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock size={12} /> {article.readTime}
-                </span>
-              </div>
-              <h2 className="text-lg font-bold leading-snug text-gray-900 group-hover:text-primary-700">
-                {article.title}
-              </h2>
-              <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-gray-500">
-                {article.description}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {article.relatedKeywords.slice(0, 3).map((keyword) => (
-                  <span key={keyword} className="rounded-md bg-gray-50 px-2 py-1 text-[11px] text-gray-500">
-                    {keyword}
+        {filteredArticles.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50 text-gray-400">
+              <Search size={24} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">没有找到匹配专题</h2>
+            <p className="mt-2 text-sm text-gray-500">换个关键词试试，例如“论文AI率”“免费降重”“AIGC检测”。</p>
+            <button onClick={resetFilters} className="mt-5 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700">
+              查看全部专题
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredArticles.map((article) => (
+              <Link
+                key={article.slug}
+                to={getArticlePath(article)}
+                className="group flex min-h-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-100 hover:shadow-lg hover:shadow-primary-50"
+              >
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
+                    {article.category}
                   </span>
-                ))}
-              </div>
-              <div className="mt-auto flex items-center justify-between pt-5 text-sm font-medium text-primary-600">
-                <span className="flex items-center gap-1">
-                  <BookOpen size={14} /> 阅读专题
-                </span>
-                <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-              </div>
-            </Link>
-          ))}
-        </div>
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <Clock size={12} /> {article.readTime}
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold leading-snug text-gray-900 group-hover:text-primary-700">
+                  {article.title}
+                </h2>
+                <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-gray-500">
+                  {article.description}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {article.relatedKeywords.slice(0, 3).map((keyword) => (
+                    <span key={keyword} className="rounded-md bg-gray-50 px-2 py-1 text-[11px] text-gray-500">
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-auto flex items-center justify-between pt-5 text-sm font-medium text-primary-600">
+                  <span className="flex items-center gap-1">
+                    <BookOpen size={14} /> 阅读专题
+                  </span>
+                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
