@@ -3,6 +3,10 @@
   <url><loc>https://www.paperfixes.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://www.paperfixes.com/home</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.paperfixes.com/pricing</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.paperfixes.com/examples</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.paperfixes.com/faq</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.paperfixes.com/privacy</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://www.paperfixes.com/terms</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
   <url><loc>https://www.paperfixes.com/blog</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.paperfixes.com/blog/ai-lunwen-jiangchong-gongju</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.paperfixes.com/blog/jiangdi-aigc-jiance-lv-fangfa</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
