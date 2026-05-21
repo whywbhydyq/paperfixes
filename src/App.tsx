@@ -11,6 +11,8 @@ import PaymentDonePage from "./pages/PaymentDonePage";
 import PricingPage from './pages/PricingPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
+import BlogListPage from './pages/BlogListPage';
+import BlogArticlePage from './pages/BlogArticlePage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/" element={<ReducePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogArticlePage />} />
             <Route path="/payment/done" element={<PaymentDonePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/admin" element={<AdminPage />} />
