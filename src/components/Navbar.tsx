@@ -26,11 +26,11 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const navLinks = [
-    { to: '/', label: '开始改写', matchExact: true },
-    { to: '/home', label: '了解更多' },
+    { to: '/', label: 'AI降重', matchExact: true },
+    { to: '/examples', label: '改写示例' },
     { to: '/blog', label: '专题指南' },
-    { to: '/pricing', label: '定价' },
-    { to: '/dashboard?tab=history', label: '修改历史' },
+    { to: '/pricing', label: '价格' },
+    { to: '/dashboard?tab=history', label: '记录' },
   ];
 
   const isActive = (link: typeof navLinks[0]) => {
@@ -40,15 +40,15 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="flex items-center gap-2.5" aria-label="PaperFix 首页">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-md shadow-primary-200">
             <FileText size={18} strokeWidth={2.5} />
           </div>
           <div className="leading-tight">
-            <div className="text-lg font-bold tracking-tight text-gray-900">学术改写引擎</div>
-            <div className="text-[10px] text-gray-400">专注降低AIGC检测率</div>
+            <div className="text-lg font-extrabold tracking-tight text-gray-900">PaperFix</div>
+            <div className="text-[10px] font-medium text-gray-400">AI论文降重与学术改写</div>
           </div>
         </Link>
 
@@ -74,7 +74,7 @@ export default function Navbar() {
                 剩余 {user?.quota ?? 0} 次
               </div>
               <div className="relative">
-                <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200">
+                <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200" aria-label="打开用户菜单">
                   <User size={16} />
                 </button>
                 {dropdownOpen && (
@@ -104,12 +104,12 @@ export default function Navbar() {
           ) : (
             <>
               <button onClick={openLoginModal} className="rounded-xl px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">登录</button>
-              <button onClick={openLoginModal} className="rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2 text-sm font-medium text-white shadow-md shadow-primary-200 transition-all hover:shadow-lg hover:shadow-primary-300 active:scale-[0.97]">免费试用</button>
+              <button onClick={openLoginModal} className="rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary-200 transition-all hover:shadow-lg hover:shadow-primary-300 active:scale-[0.97]">领取 3 次免费体验</button>
             </>
           )}
         </div>
 
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden">
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden" aria-label="打开菜单">
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
@@ -129,7 +129,7 @@ export default function Navbar() {
                 <button onClick={() => { logout(); setMobileOpen(false); }} className="w-full rounded-lg px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">退出登录</button>
               </>
             ) : (
-              <button onClick={() => { openLoginModal(); setMobileOpen(false); }} className="w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white">登录 / 注册</button>
+              <button onClick={() => { openLoginModal(); setMobileOpen(false); }} className="w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white">登录并领取 3 次免费体验</button>
             )}
           </div>
         </div>
