@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { getArticleBySlug } from '../data/articles';
 
 const SITE_URL = 'https://www.paperfixes.com';
 const SITE_NAME = 'PaperFix';
@@ -59,6 +60,13 @@ const routeSeo: Record<string, SeoConfig> = {
     path: '/pricing',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
+  '/blog': {
+    title: 'AI论文降重与AIGC检测优化专题 | PaperFix 学术改写指南',
+    description: 'PaperFix 专题库系统整理AI论文降重、降低AIGC检测率、论文AI率优化、ChatGPT论文检测和学术改写技巧。',
+    keywords: 'AI论文降重专题,AIGC检测优化,论文AI率降低,论文改写指南,学术改写教程',
+    path: '/blog',
+    jsonLd: [organizationJsonLd, softwareJsonLd],
+  },
   '/dashboard': {
     title: '用户中心 | PaperFix',
     description: 'PaperFix 用户中心，用于查看额度、改写记录和充值记录。',
@@ -112,7 +120,49 @@ function updateJsonLd(items: Record<string, unknown>[] = []) {
   });
 }
 
+function getBlogSeo(pathname: string): SeoConfig | null {
+  const match = pathname.match(/^\/blog\/([^/]+)$/);
+  if (!match) return null;
+  const article = getArticleBySlug(decodeURIComponent(match[1]));
+  if (!article) return null;
+
+  const url = `${SITE_URL}/blog/${article.slug}`;
+  return {
+    title: `${article.title} | PaperFix`,
+    description: article.description,
+    keywords: article.keywords,
+    path: `/blog/${article.slug}`,
+    jsonLd: [
+      organizationJsonLd,
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: article.title,
+        description: article.description,
+        url,
+        dateModified: article.updatedAt,
+        datePublished: article.updatedAt,
+        author: { '@type': 'Organization', name: SITE_NAME },
+        publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.svg` } },
+        mainEntityOfPage: url,
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: article.faqs.map((faq) => ({
+          '@type': 'Question',
+          name: faq.question,
+          acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+        })),
+      },
+    ],
+  };
+}
+
 function getSeoConfig(pathname: string): SeoConfig {
+  const blogSeo = getBlogSeo(pathname);
+  if (blogSeo) return blogSeo;
+
   return routeSeo[pathname] ?? {
     title: 'PaperFix - AI论文降重与学术改写工具',
     description: 'PaperFix 提供学术文本改写、论文表达优化和AI检测痕迹优化服务，帮助论文和技术文档表达更自然。',
