@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
+import SEO from './components/SEO';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
@@ -24,6 +25,7 @@ export default function App() {
   useEffect(() => { checkPlanExpiry(); }, [checkPlanExpiry]);
   return (
     <BrowserRouter>
+      <SEO />
       <ScrollToTop />
       <div className="flex min-h-screen flex-col bg-white text-gray-900">
         <Navbar />
@@ -32,7 +34,7 @@ export default function App() {
             <Route path="/" element={<ReducePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/payment/done" element={<PaymentDonePage />} />
+            <Route path="/payment/done" element={<PaymentDonePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>
