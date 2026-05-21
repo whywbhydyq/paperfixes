@@ -41,12 +41,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (pid && key && base) {
           const baseUrl = base.replace(/\/?$/, '/');
-          const queryUrl = `${baseUrl}api.php?act=order&pid=${pid}&key=${key}&out_trade_no=${orderId}`;
-          console.log('[状态] 查询平台:', queryUrl);
+          const queryParams = new URLSearchParams({
+            act: 'order',
+            pid,
+            key,
+            out_trade_no: orderId,
+          });
+          const queryUrl = `${baseUrl}api.php?${queryParams.toString()}`;
+          console.log('[状态] 查询平台订单:', orderId);
           const queryRes = await fetch(queryUrl);
           const queryData = await queryRes.json();
 
-          console.log('[状态] 平台返回:', JSON.stringify(queryData));
+          console.log('[状态] 平台返回:', JSON.stringify({
+            code: queryData.code,
+            status: queryData.status,
+            out_trade_no: queryData.out_trade_no,
+          }));
 
           if (queryData.code === 1 && Number(queryData.status) === 1) {
             const updated = await prisma.order.updateMany({
