@@ -3,26 +3,67 @@ import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import { isAdminUser } from '../_lib/constants.js';
 
-const DEFAULT_PLANS = [
+interface PlanConfig {
+  planKey: string;
+  name: string;
+  price: number;
+  quota: number;
+  minChars: number;
+  maxChars: number;
+  features: string[];
+  popular: boolean;
+  active: boolean;
+  sortOrder: number;
+}
+
+const DEFAULT_PLANS: PlanConfig[] = [
   {
-    planKey: 'free', name: '免费体验', price: 0, quota: 2,
+    planKey: 'free', name: '免费体验', price: 0, quota: 3,
     minChars: 40, maxChars: 500,
-    features: ['5 次免费改写额度', '单次最多 500 字', '标准改写质量', '邮箱/手机登录'],
+    features: ['注册即送 3 次免费降 AI 率额度', '单次最多 500 字', '标准改写质量', '手机登录即可使用'],
     popular: false, active: true, sortOrder: 0,
   },
   {
     planKey: 'basic', name: '基础套餐', price: 29, quota: 50,
     minChars: 40, maxChars: 3000,
-    features: ['50 次改写额度', '单次最多 3000 字', '优先处理队列', '邮箱/手机登录', '30 天有效'],
+    features: ['50 次改写额度', '单次最多 3000 字', '优先处理队列', '手机登录即可使用', '30 天有效'],
     popular: true, active: true, sortOrder: 1,
   },
   {
     planKey: 'pro', name: '专业套餐', price: 99, quota: 300,
     minChars: 40, maxChars: 5000,
-    features: ['300 次改写额度', '单次最多 5000 字', '最高优先级处理', '邮箱/手机登录', '30 天有效'],
+    features: ['300 次改写额度', '单次最多 5000 字', '最高优先级处理', '手机登录即可使用', '30 天有效'],
     popular: false, active: true, sortOrder: 2,
   },
 ];
+
+function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; changed: boolean } {
+  let changed = false;
+  const normalized = plans.map((plan) => {
+    if (plan.planKey !== 'free') return plan;
+
+    const freeDefaults = DEFAULT_PLANS[0];
+    const features = plan.features?.length ? plan.features : freeDefaults.features;
+    const nextFeatures = features.map((feature) =>
+      /免费|注册|额度/.test(feature) ? '注册即送 3 次免费降 AI 率额度' : feature
+    );
+
+    if (!nextFeatures.includes('注册即送 3 次免费降 AI 率额度')) {
+      nextFeatures.unshift('注册即送 3 次免费降 AI 率额度');
+    }
+
+    const nextPlan = {
+      ...plan,
+      quota: 3,
+      features: nextFeatures,
+    };
+
+    changed = changed || plan.quota !== 3 || JSON.stringify(plan.features) !== JSON.stringify(nextFeatures);
+    return nextPlan;
+  });
+
+  return { plans: normalized, changed };
+}
 
 async function checkAdmin(req: VercelRequest): Promise<{ ok: boolean; userId?: string }> {
   const userId = getUserFromRequest(req);
@@ -40,7 +81,17 @@ async function ensureDefaultConfig() {
     });
     return DEFAULT_PLANS;
   }
-  return JSON.parse(existing.value);
+
+  const parsedPlans = JSON.parse(existing.value) as PlanConfig[];
+  const { plans, changed } = normalizePlans(parsedPlans);
+  if (changed) {
+    await prisma.config.update({
+      where: { key: 'pricing_plans' },
+      data: { value: JSON.stringify(plans) },
+    });
+  }
+
+  return plans;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
