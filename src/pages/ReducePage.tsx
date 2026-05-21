@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import JobPoller from '../components/JobPoller';
-import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift } from 'lucide-react';
+import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift, ShieldCheck, Wand2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
@@ -16,7 +16,6 @@ async function fetchPlanMaxChars(plan: string, token: string | null): Promise<nu
       if (found) return found.maxChars;
     }
   } catch {}
-  // 兜底
   const defaults: Record<string, number> = { free: 500, basic: 3000, pro: 5000 };
   return defaults[plan] ?? 500;
 }
@@ -24,6 +23,7 @@ async function fetchPlanMaxChars(plan: string, token: string | null): Promise<nu
 type Phase = 'input' | 'processing' | 'done';
 
 const MIN_CHARS = 40;
+const SAMPLE_TEXT = '随着人工智能生成内容技术的快速发展，AIGC 在论文写作中的应用越来越广泛。虽然该技术能够提高文本生成效率，但也容易导致论文表达出现模板化、概括化和机器化的问题。因此，本文从文本表达优化角度出发，对相关内容进行分析，并提出一种更自然的学术表达改写思路。';
 
 const countChars = (s: string) => s.replace(/\s/g, '').length;
 
@@ -39,7 +39,6 @@ export default function ReducePage() {
   const [copied, setCopied] = useState(false);
   const [MAX_CHARS, setMaxChars] = useState(500);
 
-  // 动态拉取当前套餐的 maxChars
   useEffect(() => {
     fetchPlanMaxChars(user?.plan ?? 'free', token).then(setMaxChars);
   }, [user?.plan, token]);
@@ -57,11 +56,20 @@ export default function ReducePage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isOverLimit = countChars(text) > MAX_CHARS;
+  const charCount = countChars(text);
+  const isOverLimit = charCount > MAX_CHARS;
+  const progress = Math.min(100, Math.round((charCount / MAX_CHARS) * 100));
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
     saveInputText(e.target.value);
+  };
+
+  const fillSampleText = () => {
+    setText(SAMPLE_TEXT);
+    saveInputText(SAMPLE_TEXT);
+    setError('');
+    trackEvent('sample_text_fill', { char_count: countChars(SAMPLE_TEXT) });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,11 +90,11 @@ export default function ReducePage() {
   const handleSubmit = async () => {
     const charCount = countChars(text);
     setError('');
-    if (!text.trim()) { setError('请输入需要改写的文本'); trackEvent('rewrite_submit_blocked', { reason: 'empty' }); return; }
-    if (charCount < MIN_CHARS) { setError(`文本太短，请至少输入${MIN_CHARS}个字符`); trackEvent('rewrite_submit_blocked', { reason: 'too_short', char_count: charCount }); return; }
-    if (isOverLimit) { setError(`当前套餐单次最多${MAX_CHARS}字，请精简后重试或升级套餐`); trackEvent('rewrite_submit_blocked', { reason: 'too_long', char_count: charCount, max_chars: MAX_CHARS }); return; }
+    if (!text.trim()) { setError('先粘贴一段需要优化的论文文本，或点击“试用示例文本”。'); trackEvent('rewrite_submit_blocked', { reason: 'empty' }); return; }
+    if (charCount < MIN_CHARS) { setError(`文本有点短，请至少输入 ${MIN_CHARS} 个有效字符。`); trackEvent('rewrite_submit_blocked', { reason: 'too_short', char_count: charCount }); return; }
+    if (isOverLimit) { setError(`当前套餐单次最多 ${MAX_CHARS} 字，请精简文本或升级套餐。`); trackEvent('rewrite_submit_blocked', { reason: 'too_long', char_count: charCount, max_chars: MAX_CHARS }); return; }
     if (!isLoggedIn) { trackEvent('free_trial_click', { source: 'rewrite_submit', char_count: charCount }); openLoginModal(); return; }
-    if ((user?.quota ?? 0) <= 0) { setError('额度不足，请前往定价页面购买'); trackEvent('quota_exhausted', { source: 'rewrite_submit', plan: user?.plan || 'unknown', total_used: user?.totalUsed ?? 0 }); return; }
+    if ((user?.quota ?? 0) <= 0) { setError('你的免费额度已用完，可以前往定价页购买更多改写额度。'); trackEvent('quota_exhausted', { source: 'rewrite_submit', plan: user?.plan || 'unknown', total_used: user?.totalUsed ?? 0 }); return; }
     trackEvent((user?.totalUsed ?? 0) === 0 ? 'first_submit' : 'rewrite_submit', { char_count: charCount, plan: user?.plan || 'unknown', quota_before: user?.quota ?? 0 });
     setSubmitting(true);
     try {
@@ -97,7 +105,7 @@ export default function ReducePage() {
       updateQuota(data.quota, user!.totalUsed + 1);
       trackEvent('rewrite_submit_success', { job_id: data.jobId, quota_after: data.quota, char_count: charCount });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '提交失败，请重试';
+      const message = err instanceof Error ? err.message : '提交失败，请稍后再试';
       trackEvent('rewrite_submit_fail', { error: message, char_count: charCount });
       setError(message);
     } finally { setSubmitting(false); }
@@ -137,40 +145,66 @@ export default function ReducePage() {
   const isEditable = phase === 'input';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50/80 to-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">学术改写引擎</h1>
-          <p className="mt-1 text-sm text-gray-500">粘贴论文段落，智能降低AIGC检测率 · 技术术语零破坏 · 字数严格控制</p>
+    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#eff6ff_0%,#ffffff_42%,#f9fafb_100%)]">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white/80 px-4 py-2 text-sm font-medium text-primary-700 shadow-sm">
+            <Gift size={15} /> 新用户注册即送 3 次免费体验
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 md:text-5xl">
+            让论文表达更自然，降低 AI 味
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-500">
+            粘贴摘要、引言或检测报告中的高风险段落，PaperFix 会在保护术语和原意的前提下优化机器化表达。
+          </p>
           {!isLoggedIn && (
             <button
               onClick={handleTrialPromptClick}
-              className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-100"
+              className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-100 transition-all hover:bg-primary-700 active:scale-[0.98]"
             >
-              <Gift size={15} />
-              新用户注册即送 3 次免费降 AI 率体验
+              领取 3 次免费体验
               <ArrowRight size={14} />
             </button>
           )}
         </div>
 
+        <div className="mb-5 grid gap-3 md:grid-cols-3">
+          {[
+            ['术语保护', '框架名、变量名、医学名词不乱改'],
+            ['失败退还', '任务失败自动退还额度'],
+            ['隐私友好', '处理完成后不留存原文'],
+          ].map(([title, desc]) => (
+            <div key={title} className="rounded-2xl border border-gray-100 bg-white/80 p-4 shadow-sm backdrop-blur">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={18} className="mt-0.5 shrink-0 text-primary-600" />
+                <div>
+                  <div className="text-sm font-bold text-gray-900">{title}</div>
+                  <div className="mt-1 text-xs leading-5 text-gray-500">{desc}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {error && (
-          <div className="mb-4 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />{error}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* 左栏：原文 */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-                <FileText size={14} />
+          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                <FileText size={15} />
               </div>
-              <span className="text-sm font-semibold text-gray-900">{isEditable ? '原文输入' : '原文'}</span>
+              <div>
+                <div className="text-sm font-bold text-gray-900">{isEditable ? '输入论文段落' : '原文'}</div>
+                <div className="text-xs text-gray-400">建议优先处理摘要、引言、结论等高风险段落</div>
+              </div>
               {isEditable && (
-                <span className={`ml-auto text-xs font-medium ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
-                  {countChars(text)} 字{isOverLimit && '（超出限制）'}
+                <span className={`ml-auto text-xs font-semibold ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
+                  {charCount}/{MAX_CHARS} 字
                 </span>
               )}
             </div>
@@ -179,90 +213,89 @@ export default function ReducePage() {
                 <textarea
                   value={text}
                   onChange={handleTextChange}
-                  placeholder={"在此粘贴需要降低AIGC检测率的论文段落...\n\n引擎将严格执行：增加解释性冗余、系统性同义替换、把字句转换等策略，同时保护所有技术术语不被修改。"}
-                  className={`custom-scrollbar w-full min-h-[320px] resize-none rounded-xl border bg-gray-50/50 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
+                  placeholder={"粘贴需要降低 AI 味的论文段落，例如摘要、引言、文献综述或结论。\n\n建议：一次处理一个自然段，改写后再人工复核术语、数据和引用。"}
+                  className={`custom-scrollbar w-full min-h-[340px] resize-none rounded-2xl border bg-gray-50/60 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
                 />
-                <div className="mt-2 flex items-center justify-between text-xs">
-                  <label className="flex cursor-pointer items-center gap-1 text-gray-400 hover:text-primary-600 transition-colors">
-                    <FileUp size={12} /> 上传 .txt 文件
-                    <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
-                  </label>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                  <div className={`h-full rounded-full transition-all ${isOverLimit ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${progress}%` }} />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-gray-400 transition-colors hover:text-primary-600">
+                      <FileUp size={12} /> 上传 .txt/.md
+                      <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
+                    </label>
+                    <button onClick={fillSampleText} className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700">
+                      <Wand2 size={12} /> 试用示例文本
+                    </button>
+                  </div>
                   {isLoggedIn ? (
-                    <span className="text-gray-400">
-                      剩余额度：<span className="font-medium text-primary-600">{user?.quota ?? 0}</span> 次
-                    </span>
+                    <span className="text-gray-400">剩余额度：<span className="font-semibold text-primary-600">{user?.quota ?? 0}</span> 次</span>
                   ) : (
-                    <span className="text-primary-500">注册后可免费体验 3 次</span>
+                    <span className="font-medium text-primary-500">登录后可免费体验 3 次</span>
                   )}
                 </div>
               </>
             ) : (
-              <div className="custom-scrollbar rounded-xl border border-gray-100 bg-gray-50 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-600">{text}</div>
+              <div className="custom-scrollbar rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-600">{text}</div>
             )}
           </div>
 
-          {/* 右栏：结果 */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
+          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${phase === 'done' ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'}`}>
-                  {phase === 'done' ? <Check size={14} /> : <Sparkles size={14} />}
+                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${phase === 'done' ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'}`}>
+                  {phase === 'done' ? <Check size={15} /> : <Sparkles size={15} />}
                 </div>
-                <span className="text-sm font-semibold text-gray-900">改写结果</span>
-                {phase === 'done' && countChars(text) > 0 && (
-                  <span className="text-xs text-gray-400">{countChars(text)}字 → <span className="text-green-600 font-medium">{outputLen}字</span></span>
-                )}
+                <div>
+                  <div className="text-sm font-bold text-gray-900">优化结果</div>
+                  <div className="text-xs text-gray-400">保留原意，重构句式，降低模板化表达</div>
+                </div>
               </div>
               {phase === 'done' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-green-600 font-medium">{outputLen}字</span>
-                  <button onClick={handleCopyResult} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${copied ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                    {copied ? <><Check size={12} className="text-green-600" /> 已复制</> : <><Copy size={12} /> 复制</>}
-                  </button>
-                </div>
+                <button onClick={handleCopyResult} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${copied ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {copied ? <><Check size={12} className="text-green-600" /> 已复制</> : <><Copy size={12} /> 复制结果</>}
+                </button>
               )}
             </div>
 
             {phase === 'input' && (
-              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
+              <div className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
-                <p className="text-sm font-medium text-gray-500">粘贴文本后点击“开始改写”</p>
-                <p className="mt-1.5 text-xs text-gray-400">结果将在这里显示，与原文对照查看</p>
+                <p className="text-sm font-semibold text-gray-600">优化结果会显示在这里</p>
+                <p className="mt-1.5 max-w-xs text-xs leading-5 text-gray-400">提交后可与原文对照，重点检查术语、数据、引用和结论是否保持一致。</p>
               </div>
             )}
 
             {phase === 'processing' && (
-              <div className="min-h-[320px]">
-          <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
+              <div className="min-h-[340px]">
+                <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
               </div>
             )}
 
             {phase === 'done' && (
-              <div className="custom-scrollbar min-h-[320px] rounded-xl border border-gray-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
+              <div className="custom-scrollbar min-h-[340px] rounded-2xl border border-green-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
             )}
           </div>
         </div>
 
-        {/* 底部操作栏 */}
-        <div className="mt-4">
+        <div className="mt-5">
           {phase === 'input' ? (
             <>
-              <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:shadow-xl hover:shadow-primary-300 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none">
-                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 提交中...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册，领取 3 次体验</>) : (<><Send size={18} /> 开始改写 <ArrowRight size={16} className="ml-1" /></>)}
+              <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 py-4 text-base font-bold text-white shadow-xl shadow-primary-100 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none">
+                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 正在提交...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册并开始优化</>) : (<><Send size={18} /> 开始优化文本 <ArrowRight size={16} className="ml-1" /></>)}
               </button>
-              <div className="mt-3 flex items-start gap-2 px-1 text-xs text-gray-400">
+              <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字，新用户注册即送 3 次免费额度</span>
+                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；结果仅供写作辅助，请结合论文要求人工复核。</span>
               </div>
             </>
           ) : phase === 'done' ? (
-            <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors">
-              <RotateCcw size={16} /> 继续改写
+            <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50">
+              <RotateCcw size={16} /> 继续优化下一段
             </button>
           ) : null}
         </div>
-
-        
       </div>
     </div>
   );
