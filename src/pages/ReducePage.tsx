@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import JobPoller from '../components/JobPoller';
-import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight } from 'lucide-react';
+import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
 
@@ -124,6 +124,16 @@ export default function ReducePage() {
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900">学术改写引擎</h1>
           <p className="mt-1 text-sm text-gray-500">粘贴论文段落，智能降低AIGC检测率 · 技术术语零破坏 · 字数严格控制</p>
+          {!isLoggedIn && (
+            <button
+              onClick={openLoginModal}
+              className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-100"
+            >
+              <Gift size={15} />
+              新用户注册即送 3 次免费降 AI 率体验
+              <ArrowRight size={14} />
+            </button>
+          )}
         </div>
 
         {error && (
@@ -159,10 +169,12 @@ export default function ReducePage() {
                     <FileUp size={12} /> 上传 .txt 文件
                     <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
                   </label>
-                  {isLoggedIn && (
+                  {isLoggedIn ? (
                     <span className="text-gray-400">
                       剩余额度：<span className="font-medium text-primary-600">{user?.quota ?? 0}</span> 次
                     </span>
+                  ) : (
+                    <span className="text-primary-500">注册后可免费体验 3 次</span>
                   )}
                 </div>
               </>
@@ -196,7 +208,7 @@ export default function ReducePage() {
             {phase === 'input' && (
               <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
-                <p className="text-sm font-medium text-gray-500">粘贴文本后点击"开始改写"</p>
+                <p className="text-sm font-medium text-gray-500">粘贴文本后点击“开始改写”</p>
                 <p className="mt-1.5 text-xs text-gray-400">结果将在这里显示，与原文对照查看</p>
               </div>
             )}
@@ -218,11 +230,11 @@ export default function ReducePage() {
           {phase === 'input' ? (
             <>
               <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary-200 transition-all hover:shadow-xl hover:shadow-primary-300 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none">
-                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 提交中...</>) : !isLoggedIn ? (<><Send size={18} /> 登录后开始改写</>) : (<><Send size={18} /> 开始改写 <ArrowRight size={16} className="ml-1" /></>)}
+                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 提交中...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册，领取 3 次体验</>) : (<><Send size={18} /> 开始改写 <ArrowRight size={16} className="ml-1" /></>)}
               </button>
               <div className="mt-3 flex items-start gap-2 px-1 text-xs text-gray-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字</span>
+                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字，新用户注册即送 3 次免费额度</span>
               </div>
             </>
           ) : phase === 'done' ? (

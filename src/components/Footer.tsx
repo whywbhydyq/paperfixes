@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white">
       <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-primary-800 text-white">
@@ -21,9 +21,19 @@ export default function Footer() {
             <h4 className="mb-3 text-sm font-semibold text-gray-900">产品</h4>
             <div className="space-y-2">
               <Link to="/" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">开始改写</Link>
-              <Link to="/home" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">了解更多</Link>
+              <Link to="/examples" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">改写示例</Link>
               <Link to="/pricing" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">定价方案</Link>
               <Link to="/dashboard" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">个人中心</Link>
+            </div>
+          </div>
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-gray-900">内容</h4>
+            <div className="space-y-2">
+              <Link to="/home" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">了解更多</Link>
+              <Link to="/blog" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">专题指南</Link>
+              <Link to="/faq" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">常见问题</Link>
+              <Link to="/privacy" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">隐私政策</Link>
+              <Link to="/terms" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">服务条款</Link>
             </div>
           </div>
           <div>
@@ -39,7 +49,7 @@ export default function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={14} className="text-green-500 shrink-0" />
-                历史记录永久保存
+                处理完成后不留存原文
               </div>
             </div>
           </div>

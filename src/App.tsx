@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
+import SEO from './components/SEO';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
@@ -10,6 +11,12 @@ import PaymentDonePage from "./pages/PaymentDonePage";
 import PricingPage from './pages/PricingPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
+import BlogListPage from './pages/BlogListPage';
+import BlogArticlePage from './pages/BlogArticlePage';
+import ExamplesPage from './pages/ExamplesPage';
+import FaqPage from './pages/FaqPage';
+import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -24,6 +31,7 @@ export default function App() {
   useEffect(() => { checkPlanExpiry(); }, [checkPlanExpiry]);
   return (
     <BrowserRouter>
+      <SEO />
       <ScrollToTop />
       <div className="flex min-h-screen flex-col bg-white text-gray-900">
         <Navbar />
@@ -32,7 +40,13 @@ export default function App() {
             <Route path="/" element={<ReducePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/payment/done" element={<PaymentDonePage />} />
+            <Route path="/examples" element={<ExamplesPage />} />
+            <Route path="/faq" element={<FaqPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogArticlePage />} />
+            <Route path="/payment/done" element={<PaymentDonePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>

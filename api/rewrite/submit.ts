@@ -28,7 +28,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return res.status(404).json({ error: '用户不存在' });
-  if (user.quota <= 0) return res.status(403).json({ error: '额度不足，请前往定价页面购买' });
 
   const limits = await getPlanLimits(user.plan);
   const trimmed = text.trim();
@@ -42,21 +41,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const updatedUser = await tx.user.update({
-      where: { id: userId },
+    const quotaUpdate = await tx.user.updateMany({
+      where: { id: userId, quota: { gt: 0 } },
       data: { quota: { decrement: 1 }, totalUsed: { increment: 1 } },
     });
+
+    if (quotaUpdate.count !== 1) {
+      throw new Error('NO_QUOTA');
+    }
 
     const job = await tx.job.create({
       data: { userId, inputText: trimmed, inputLen: charCount, status: 'PENDING' },
     });
 
-    return { job, user: updatedUser };
+    const updatedUser = await tx.user.findUnique({
+      where: { id: userId },
+      select: { quota: true },
+    });
+
+    return { job, quota: updatedUser?.quota ?? 0 };
+  }).catch((err: unknown) => {
+    if (err instanceof Error && err.message === 'NO_QUOTA') return null;
+    throw err;
   });
+
+  if (!result) {
+    return res.status(403).json({ error: '额度不足，请前往定价页面购买' });
+  }
 
   return res.status(200).json({
     jobId: result.job.id,
-    quota: result.user.quota,
+    quota: result.quota,
     maxChars: limits.maxChars,
   });
 }

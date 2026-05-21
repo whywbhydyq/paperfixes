@@ -93,14 +93,15 @@ export default function LoginModal() {
     setError('');
     if (newPwd.length < 6) { setError('密码至少6位'); return; }
     if (newPwd !== confirmPwd) { setError('两次密码不一致'); return; }
+    if (!tempUser || !tempToken) { setError('登录状态异常，请重新获取验证码'); return; }
     setLoginLoading(true);
     try {
       await setUserPassword(newPwd, tempToken);
-      login(tempUser, tempToken);
+      login({ ...tempUser, hasPassword: true }, tempToken);
       closeLoginModal();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '设置失败');
-    } finally { setLoading(false); }
+    } finally { setLoginLoading(false); }
   };
 
   // ─── 设置密码步骤 ───

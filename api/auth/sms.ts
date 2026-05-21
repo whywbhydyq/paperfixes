@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
-import jwt from 'jsonwebtoken';
+import { signToken } from '../_lib/auth.js';
 import crypto from 'crypto';
 
 function generateCode(): string {
@@ -139,11 +139,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!user) {
       user = await prisma.user.create({
-        data: { phone, plan: 'free', quota: 2, totalUsed: 0, role: 'user' },
+        data: { phone, plan: 'free', quota: 3, totalUsed: 0, role: 'user' },
       });
     }
 
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '30d' });
+    const token = signToken(user.id);
 
     return res.status(200).json({
       user: {
