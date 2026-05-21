@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen, Clock, Search, Sparkles } from 'lucide-react';
 import { articles } from '../data/articles';
+import { getArticlePath } from '../data/articleSlugs';
 
 const categories = Array.from(new Set(articles.map((article) => article.category)));
 
@@ -38,7 +39,7 @@ export default function BlogListPage() {
           {articles.map((article) => (
             <Link
               key={article.slug}
-              to={`/blog/${article.slug}`}
+              to={getArticlePath(article)}
               className="group flex min-h-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-100 hover:shadow-lg hover:shadow-primary-50"
             >
               <div className="mb-4 flex items-center justify-between gap-3">
