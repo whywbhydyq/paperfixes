@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Clock, Search, Sparkles, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock, Search, Sparkles, TrendingUp, X } from 'lucide-react';
 import { articles } from '../data/articles';
 import { getArticlePath } from '../data/articleSlugs';
+import { contentInsights, featuredIntentKeywords } from '../data/contentInsights';
 
 const categories = Array.from(new Set(articles.map((article) => article.category)));
+const intentGroups = Array.from(new Set(contentInsights.map((item) => item.intent)));
 
 export default function BlogListPage() {
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -52,6 +54,39 @@ export default function BlogListPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-6 py-10">
+        <section className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <TrendingUp size={16} className="text-primary-600" /> 国内用户常搜问题
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {featuredIntentKeywords.map((keyword) => (
+                <button
+                  key={keyword}
+                  onClick={() => setQuery(keyword)}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 text-sm font-semibold text-gray-900">内容覆盖方向</div>
+            <div className="grid grid-cols-2 gap-2">
+              {intentGroups.map((intent) => (
+                <button
+                  key={intent}
+                  onClick={() => setQuery(intent)}
+                  className="rounded-xl bg-gray-50 px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                >
+                  {intent}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative flex-1">
