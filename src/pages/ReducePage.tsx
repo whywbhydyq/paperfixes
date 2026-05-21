@@ -138,163 +138,168 @@ export default function ReducePage() {
   };
 
   const handleTrialPromptClick = () => {
-    trackEvent('free_trial_click', { source: 'hero_prompt' });
+    trackEvent('free_trial_click', { source: 'side_prompt' });
     openLoginModal();
   };
 
   const isEditable = phase === 'input';
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#eff6ff_0%,#ffffff_42%,#f9fafb_100%)]">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white/80 px-4 py-2 text-sm font-medium text-primary-700 shadow-sm">
-            <Gift size={15} /> 新用户注册即送 3 次免费体验
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 md:text-5xl">
-            让论文表达更自然，降低 AI 味
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-500">
-            粘贴摘要、引言或检测报告中的高风险段落，PaperFix 会在保护术语和原意的前提下优化机器化表达。
-          </p>
-          {!isLoggedIn && (
-            <button
-              onClick={handleTrialPromptClick}
-              className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-100 transition-all hover:bg-primary-700 active:scale-[0.98]"
-            >
-              领取 3 次免费体验
-              <ArrowRight size={14} />
-            </button>
-          )}
-        </div>
-
-        <div className="mb-5 grid gap-3 md:grid-cols-3">
-          {[
-            ['术语保护', '框架名、变量名、医学名词不乱改'],
-            ['失败退还', '任务失败自动退还额度'],
-            ['隐私友好', '处理完成后不留存原文'],
-          ].map(([title, desc]) => (
-            <div key={title} className="rounded-2xl border border-gray-100 bg-white/80 p-4 shadow-sm backdrop-blur">
-              <div className="flex items-start gap-3">
-                <ShieldCheck size={18} className="mt-0.5 shrink-0 text-primary-600" />
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{title}</div>
-                  <div className="mt-1 text-xs leading-5 text-gray-500">{desc}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
+    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#eff6ff_0%,#ffffff_38%,#f9fafb_100%)]">
+      <div className="mx-auto max-w-7xl px-6 py-6 lg:py-8">
         {error && (
           <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />{error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
-                <FileText size={15} />
+        <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-3xl border border-primary-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700">
+                <Gift size={13} /> 新用户 3 次免费体验
               </div>
-              <div>
-                <div className="text-sm font-bold text-gray-900">{isEditable ? '输入论文段落' : '原文'}</div>
-                <div className="text-xs text-gray-400">建议优先处理摘要、引言、结论等高风险段落</div>
-              </div>
-              {isEditable && (
-                <span className={`ml-auto text-xs font-semibold ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
-                  {charCount}/{MAX_CHARS} 字
-                </span>
-              )}
-            </div>
-            {isEditable ? (
-              <>
-                <textarea
-                  value={text}
-                  onChange={handleTextChange}
-                  placeholder={"粘贴需要降低 AI 味的论文段落，例如摘要、引言、文献综述或结论。\n\n建议：一次处理一个自然段，改写后再人工复核术语、数据和引用。"}
-                  className={`custom-scrollbar w-full min-h-[340px] resize-none rounded-2xl border bg-gray-50/60 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
-                />
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                  <div className={`h-full rounded-full transition-all ${isOverLimit ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${progress}%` }} />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3">
-                    <label className="flex cursor-pointer items-center gap-1.5 text-gray-400 transition-colors hover:text-primary-600">
-                      <FileUp size={12} /> 上传 .txt/.md
-                      <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
-                    </label>
-                    <button onClick={fillSampleText} className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700">
-                      <Wand2 size={12} /> 试用示例文本
-                    </button>
-                  </div>
-                  {isLoggedIn ? (
-                    <span className="text-gray-400">剩余额度：<span className="font-semibold text-primary-600">{user?.quota ?? 0}</span> 次</span>
-                  ) : (
-                    <span className="font-medium text-primary-500">登录后可免费体验 3 次</span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="custom-scrollbar rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-600">{text}</div>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${phase === 'done' ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'}`}>
-                  {phase === 'done' ? <Check size={15} /> : <Sparkles size={15} />}
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">优化结果</div>
-                  <div className="text-xs text-gray-400">保留原意，重构句式，降低模板化表达</div>
-                </div>
-              </div>
-              {phase === 'done' && (
-                <button onClick={handleCopyResult} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${copied ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                  {copied ? <><Check size={12} className="text-green-600" /> 已复制</> : <><Copy size={12} /> 复制结果</>}
+              <h1 className="text-2xl font-extrabold leading-tight tracking-tight text-gray-900 xl:text-3xl">
+                让论文表达更自然，降低 AI 味
+              </h1>
+              <p className="mt-3 text-sm leading-7 text-gray-500">
+                粘贴摘要、引言或检测报告中的高风险段落，PaperFix 会在保护术语和原意的前提下优化机器化表达。
+              </p>
+              {!isLoggedIn && (
+                <button
+                  onClick={handleTrialPromptClick}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-100 transition-all hover:bg-primary-700 active:scale-[0.98]"
+                >
+                  领取 3 次免费体验
+                  <ArrowRight size={14} />
                 </button>
               )}
+              <div className="mt-5 space-y-3">
+                {[
+                  ['术语保护', '框架名、变量名、医学名词不乱改'],
+                  ['失败退还', '任务失败自动退还额度'],
+                  ['隐私友好', '处理完成后不留存原文'],
+                ].map(([title, desc]) => (
+                  <div key={title} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck size={17} className="mt-0.5 shrink-0 text-primary-600" />
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">{title}</div>
+                        <div className="mt-1 text-xs leading-5 text-gray-500">{desc}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <section>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                    <FileText size={15} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-900">{isEditable ? '输入论文段落' : '原文'}</div>
+                    <div className="text-xs text-gray-400">建议优先处理摘要、引言、结论等高风险段落</div>
+                  </div>
+                  {isEditable && (
+                    <span className={`ml-auto text-xs font-semibold ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
+                      {charCount}/{MAX_CHARS} 字
+                    </span>
+                  )}
+                </div>
+                {isEditable ? (
+                  <>
+                    <textarea
+                      value={text}
+                      onChange={handleTextChange}
+                      placeholder={"粘贴需要降低 AI 味的论文段落，例如摘要、引言、文献综述或结论。\n\n建议：一次处理一个自然段，改写后再人工复核术语、数据和引用。"}
+                      className={`custom-scrollbar w-full min-h-[430px] resize-none rounded-2xl border bg-gray-50/60 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
+                    />
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div className={`h-full rounded-full transition-all ${isOverLimit ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3">
+                        <label className="flex cursor-pointer items-center gap-1.5 text-gray-400 transition-colors hover:text-primary-600">
+                          <FileUp size={12} /> 上传 .txt/.md
+                          <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
+                        </label>
+                        <button onClick={fillSampleText} className="flex items-center gap-1.5 text-primary-600 hover:text-primary-700">
+                          <Wand2 size={12} /> 试用示例文本
+                        </button>
+                      </div>
+                      {isLoggedIn ? (
+                        <span className="text-gray-400">剩余额度：<span className="font-semibold text-primary-600">{user?.quota ?? 0}</span> 次</span>
+                      ) : (
+                        <span className="font-medium text-primary-500">登录后可免费体验 3 次</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="custom-scrollbar rounded-2xl border border-gray-100 bg-gray-50 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-600">{text}</div>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${phase === 'done' ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'}`}>
+                      {phase === 'done' ? <Check size={15} /> : <Sparkles size={15} />}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">优化结果</div>
+                      <div className="text-xs text-gray-400">保留原意，重构句式，降低模板化表达</div>
+                    </div>
+                  </div>
+                  {phase === 'done' && (
+                    <button onClick={handleCopyResult} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${copied ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                      {copied ? <><Check size={12} className="text-green-600" /> 已复制</> : <><Copy size={12} /> 复制结果</>}
+                    </button>
+                  )}
+                </div>
+
+                {phase === 'input' && (
+                  <div className="flex min-h-[430px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
+                    <p className="text-sm font-semibold text-gray-600">优化结果会显示在这里</p>
+                    <p className="mt-1.5 max-w-xs text-xs leading-5 text-gray-400">提交后可与原文对照，重点检查术语、数据、引用和结论是否保持一致。</p>
+                  </div>
+                )}
+
+                {phase === 'processing' && (
+                  <div className="min-h-[430px]">
+                    <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
+                  </div>
+                )}
+
+                {phase === 'done' && (
+                  <div className="custom-scrollbar min-h-[430px] rounded-2xl border border-green-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
+                )}
+              </div>
             </div>
 
-            {phase === 'input' && (
-              <div className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
-                <p className="text-sm font-semibold text-gray-600">优化结果会显示在这里</p>
-                <p className="mt-1.5 max-w-xs text-xs leading-5 text-gray-400">提交后可与原文对照，重点检查术语、数据、引用和结论是否保持一致。</p>
-              </div>
-            )}
-
-            {phase === 'processing' && (
-              <div className="min-h-[340px]">
-                <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
-              </div>
-            )}
-
-            {phase === 'done' && (
-              <div className="custom-scrollbar min-h-[340px] rounded-2xl border border-green-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-5">
-          {phase === 'input' ? (
-            <>
-              <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 py-4 text-base font-bold text-white shadow-xl shadow-primary-100 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none">
-                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 正在提交...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册并开始优化</>) : (<><Send size={18} /> 开始优化文本 <ArrowRight size={16} className="ml-1" /></>)}
-              </button>
-              <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
-                <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；结果仅供写作辅助，请结合论文要求人工复核。</span>
-              </div>
-            </>
-          ) : phase === 'done' ? (
-            <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50">
-              <RotateCcw size={16} /> 继续优化下一段
-            </button>
-          ) : null}
+            <div className="mt-5">
+              {phase === 'input' ? (
+                <>
+                  <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 py-4 text-base font-bold text-white shadow-xl shadow-primary-100 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none">
+                    {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 正在提交...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册并开始优化</>) : (<><Send size={18} /> 开始优化文本 <ArrowRight size={16} className="ml-1" /></>)}
+                  </button>
+                  <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
+                    <Info size={13} className="mt-0.5 shrink-0" />
+                    <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；结果仅供写作辅助，请结合论文要求人工复核。</span>
+                  </div>
+                </>
+              ) : phase === 'done' ? (
+                <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50">
+                  <RotateCcw size={16} /> 继续优化下一段
+                </button>
+              ) : null}
+            </div>
+          </section>
         </div>
       </div>
     </div>
