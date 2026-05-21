@@ -3,6 +3,7 @@ import JobPoller from '../components/JobPoller';
 import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -66,23 +67,27 @@ export default function ReducePage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.name.endsWith('.txt') && !file.name.endsWith('.md')) { setError('目前仅支持 .txt 和 .md 文件'); return; }
+    trackEvent('file_upload_attempt', { name_ext: file.name.split('.').pop() || 'unknown' });
+    if (!file.name.endsWith('.txt') && !file.name.endsWith('.md')) { setError('目前仅支持 .txt 和 .md 文件'); trackEvent('file_upload_rejected'); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const content = ev.target?.result as string;
       setText(content);
       setError('');
+      trackEvent('file_upload_success', { char_count: countChars(content) });
     };
     reader.readAsText(file);
   };
 
   const handleSubmit = async () => {
+    const charCount = countChars(text);
     setError('');
-    if (!text.trim()) { setError('请输入需要改写的文本'); return; }
-    if (countChars(text) < MIN_CHARS) { setError(`文本太短，请至少输入${MIN_CHARS}个字符`); return; }
-    if (isOverLimit) { setError(`当前套餐单次最多${MAX_CHARS}字，请精简后重试或升级套餐`); return; }
-    if (!isLoggedIn) { openLoginModal(); return; }
-    if ((user?.quota ?? 0) <= 0) { setError('额度不足，请前往定价页面购买'); return; }
+    if (!text.trim()) { setError('请输入需要改写的文本'); trackEvent('rewrite_submit_blocked', { reason: 'empty' }); return; }
+    if (charCount < MIN_CHARS) { setError(`文本太短，请至少输入${MIN_CHARS}个字符`); trackEvent('rewrite_submit_blocked', { reason: 'too_short', char_count: charCount }); return; }
+    if (isOverLimit) { setError(`当前套餐单次最多${MAX_CHARS}字，请精简后重试或升级套餐`); trackEvent('rewrite_submit_blocked', { reason: 'too_long', char_count: charCount, max_chars: MAX_CHARS }); return; }
+    if (!isLoggedIn) { trackEvent('free_trial_click', { source: 'rewrite_submit', char_count: charCount }); openLoginModal(); return; }
+    if ((user?.quota ?? 0) <= 0) { setError('额度不足，请前往定价页面购买'); trackEvent('quota_exhausted', { source: 'rewrite_submit', plan: user?.plan || 'unknown', total_used: user?.totalUsed ?? 0 }); return; }
+    trackEvent((user?.totalUsed ?? 0) === 0 ? 'first_submit' : 'rewrite_submit', { char_count: charCount, plan: user?.plan || 'unknown', quota_before: user?.quota ?? 0 });
     setSubmitting(true);
     try {
       const data = await submitRewriteJob(text.trim(), token);
@@ -90,8 +95,10 @@ export default function ReducePage() {
       setPhase('processing');
       setActiveJob({ jobId: data.jobId, phase: 'processing' });
       updateQuota(data.quota, user!.totalUsed + 1);
+      trackEvent('rewrite_submit_success', { job_id: data.jobId, quota_after: data.quota, char_count: charCount });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '提交失败，请重试';
+      trackEvent('rewrite_submit_fail', { error: message, char_count: charCount });
       setError(message);
     } finally { setSubmitting(false); }
   };
@@ -101,19 +108,30 @@ export default function ReducePage() {
     setOutputLen(outLen);
     setPhase('done');
     setActiveJob({ jobId, phase: 'done', result: res, outputLen: outLen });
+    trackEvent('rewrite_done', { job_id: jobId, output_len: outLen });
   }, [jobId, setActiveJob]);
 
   const handleError = useCallback((err: string) => {
+    trackEvent('rewrite_processing_fail', { job_id: jobId, error: err });
     setError(err); setPhase('input'); clearActiveJob();
-  }, [clearActiveJob]);
+  }, [clearActiveJob, jobId]);
 
   const handleReset = () => {
+    trackEvent('rewrite_reset');
     setText(''); setResult(''); setJobId(''); setPhase('input'); setError('');
     setOutputLen(0); clearActiveJob(); clearInputText();
   };
 
   const handleCopyResult = () => {
-    navigator.clipboard.writeText(result).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    navigator.clipboard.writeText(result).then(() => {
+      trackEvent('rewrite_result_copy', { output_len: outputLen });
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleTrialPromptClick = () => {
+    trackEvent('free_trial_click', { source: 'hero_prompt' });
+    openLoginModal();
   };
 
   const isEditable = phase === 'input';
@@ -126,7 +144,7 @@ export default function ReducePage() {
           <p className="mt-1 text-sm text-gray-500">粘贴论文段落，智能降低AIGC检测率 · 技术术语零破坏 · 字数严格控制</p>
           {!isLoggedIn && (
             <button
-              onClick={openLoginModal}
+              onClick={handleTrialPromptClick}
               className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-primary-100 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-100"
             >
               <Gift size={15} />
