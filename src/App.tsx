@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
+import { initAnalytics, trackPageView } from './lib/analytics';
 import SEO from './components/SEO';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -19,16 +20,20 @@ import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [pathname]);
+    window.setTimeout(() => trackPageView(`${pathname}${search}`), 0);
+  }, [pathname, search]);
   return null;
 }
 
 export default function App() {
   const { checkPlanExpiry } = useAuthStore();
-  useEffect(() => { checkPlanExpiry(); }, [checkPlanExpiry]);
+  useEffect(() => {
+    initAnalytics();
+    checkPlanExpiry();
+  }, [checkPlanExpiry]);
   return (
     <BrowserRouter>
       <SEO />

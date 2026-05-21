@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen, Clock, Search, Sparkles, TrendingUp, X } from 'lucide-react';
 import { articles } from '../data/articles';
 import { getArticlePath } from '../data/articleSlugs';
 import { contentInsights, featuredIntentKeywords } from '../data/contentInsights';
+import { trackEvent } from '../lib/analytics';
 
 const categories = Array.from(new Set(articles.map((article) => article.category)));
 const intentGroups = Array.from(new Set(contentInsights.map((item) => item.intent)));
@@ -11,6 +12,10 @@ const intentGroups = Array.from(new Set(contentInsights.map((item) => item.inten
 export default function BlogListPage() {
   const [activeCategory, setActiveCategory] = useState('全部');
   const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    trackEvent('blog_visit', { article_count: articles.length });
+  }, []);
 
   const filteredArticles = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -29,8 +34,19 @@ export default function BlogListPage() {
   }, [activeCategory, query]);
 
   const resetFilters = () => {
+    trackEvent('blog_filter_reset');
     setActiveCategory('全部');
     setQuery('');
+  };
+
+  const selectQuery = (keyword: string, source: string) => {
+    trackEvent('blog_search_intent_click', { keyword, source });
+    setQuery(keyword);
+  };
+
+  const selectCategory = (category: string) => {
+    trackEvent('blog_category_click', { category });
+    setActiveCategory(category);
   };
 
   return (
@@ -63,7 +79,7 @@ export default function BlogListPage() {
               {featuredIntentKeywords.map((keyword) => (
                 <button
                   key={keyword}
-                  onClick={() => setQuery(keyword)}
+                  onClick={() => selectQuery(keyword, 'featured_intent')}
                   className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
                 >
                   {keyword}
@@ -77,7 +93,7 @@ export default function BlogListPage() {
               {intentGroups.map((intent) => (
                 <button
                   key={intent}
-                  onClick={() => setQuery(intent)}
+                  onClick={() => selectQuery(intent, 'intent_group')}
                   className="rounded-xl bg-gray-50 px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
                 >
                   {intent}
@@ -94,6 +110,7 @@ export default function BlogListPage() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onBlur={() => query.trim() && trackEvent('blog_search', { query: query.trim(), result_count: filteredArticles.length })}
                 placeholder="搜索：AI论文降重、AIGC检测、ChatGPT论文检测..."
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-10 text-sm outline-none transition-colors focus:border-primary-300 focus:bg-white focus:ring-2 focus:ring-primary-100"
               />
@@ -116,7 +133,7 @@ export default function BlogListPage() {
             {['全部', ...categories].map((category) => (
               <button
                 key={category}
-                onClick={() => setActiveCategory(category)}
+                onClick={() => selectCategory(category)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   activeCategory === category
                     ? 'border-primary-200 bg-primary-50 text-primary-700'
@@ -146,6 +163,7 @@ export default function BlogListPage() {
               <Link
                 key={article.slug}
                 to={getArticlePath(article)}
+                onClick={() => trackEvent('blog_article_click', { slug: article.slug, category: article.category, source: 'blog_list' })}
                 className="group flex min-h-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-100 hover:shadow-lg hover:shadow-primary-50"
               >
                 <div className="mb-4 flex items-center justify-between gap-3">

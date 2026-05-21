@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { trackEvent } from '../lib/analytics';
 
 export interface User {
   id: string;
@@ -75,7 +76,10 @@ export const useAuthStore = create<AuthState>()(
         }),
       logout: () =>
         set({ user: null, token: null, isLoggedIn: false, activeJob: null, planActivatedAt: null }),
-      openLoginModal: () => set({ showLoginModal: true }),
+      openLoginModal: () => {
+        trackEvent('login_modal_open', { path: window.location.pathname });
+        set({ showLoginModal: true });
+      },
       closeLoginModal: () => set({ showLoginModal: false }),
       updateQuota: (quota, totalUsed) =>
         set((state) => ({

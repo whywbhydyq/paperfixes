@@ -5,6 +5,7 @@ import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import PaymentModal from '../components/PaymentModal';
 import { createPaymentOrder, pollPaymentStatus, fetchQuota } from '../lib/api';
+import { trackEvent } from '../lib/analytics';
 
 interface PlanConfig {
   planKey: string;
@@ -29,14 +30,19 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    trackEvent('pricing_visit');
     fetch(`${API_BASE}/api/admin?resource=config`)
       .then(r => r.json())
       .then(d => {
         const plans = d.plans || [];
         setPlans(plans);
         setLoading(false);
+        trackEvent('pricing_plans_loaded', { plan_count: plans.length });
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoading(false);
+        trackEvent('pricing_plans_load_fail');
+      });
   }, []);
 
   const [payLoading, setPayLoading] = useState<string | null>(null);
@@ -49,6 +55,7 @@ export default function PricingPage() {
   useEffect(() => {
     if (searchParams.get('from_pay') === '1' && token) {
       const order = searchParams.get('order');
+      trackEvent('payment_return', { has_order: !!order });
       if (order) {
         setPendingOrderId(order);
         console.log('[支付回跳] 开始轮询订单:', order);
@@ -71,6 +78,7 @@ export default function PricingPage() {
       pollTimerRef.current = setInterval(() => {
         // 最多轮询5分钟
         if (Date.now() - pollStartRef.current > 5 * 60 * 1000) {
+          trackEvent('payment_poll_timeout', { order_id: pendingOrderId });
           if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
           return;
         }
@@ -91,13 +99,55 @@ export default function PricingPage() {
     };
   }, [pendingOrderId, paySuccess, token]);
 
+  const handlePlanClick = (plan: PlanConfig) => {
+    trackEvent('pricing_click', {
+      plan_key: plan.planKey,
+      plan_name: plan.name,
+      price: plan.price,
+      quota: plan.quota,
+      logged_in: isLoggedIn,
+    });
+
+    if (plan.price > 0) {
+      if (!isLoggedIn) {
+        trackEvent('pricing_login_required', { plan_key: plan.planKey, price: plan.price });
+        openLoginModal();
+        return;
+      }
+      setSelectedPlan({ name: plan.name, price: plan.price, quota: plan.quota, planKey: plan.planKey });
+      trackEvent('payment_modal_open', { plan_key: plan.planKey, price: plan.price, quota: plan.quota });
+      return;
+    }
+
+    if (isLoggedIn) {
+      trackEvent('free_plan_use_click');
+      window.location.href = '/dashboard';
+    } else {
+      trackEvent('free_plan_register_click');
+      openLoginModal();
+    }
+  };
+
   const handlePurchase = async (payType: 'alipay' | 'wxpay') => {
     if (!selectedPlan) return;
     const loadingKey = selectedPlan.planKey + '_' + payType;
+    trackEvent('payment_create_attempt', {
+      plan_key: selectedPlan.planKey,
+      price: selectedPlan.price,
+      quota: selectedPlan.quota,
+      pay_type: payType,
+    });
     setPayLoading(loadingKey);
     try {
       const data = await createPaymentOrder(selectedPlan.planKey, payType, token);
       if (data.submitUrl && data.params && data.orderId) {
+        trackEvent('payment_create', {
+          plan_key: selectedPlan.planKey,
+          price: selectedPlan.price,
+          quota: selectedPlan.quota,
+          pay_type: payType,
+          order_id: data.orderId,
+        });
         setPendingOrderId(data.orderId);
         setSelectedPlan(null);
         const form = document.createElement('form');
@@ -115,10 +165,13 @@ export default function PricingPage() {
         form.submit();
         document.body.removeChild(form);
       } else {
+        trackEvent('payment_create_fail', { plan_key: selectedPlan.planKey, pay_type: payType, error: data.error || 'invalid_response' });
         alert(data.error || '支付创建失败，请重试');
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '网络错误，请重试');
+      const message = err instanceof Error ? err.message : '网络错误，请重试';
+      trackEvent('payment_create_fail', { plan_key: selectedPlan.planKey, pay_type: payType, error: message });
+      alert(message);
     } finally {
       setPayLoading(null);
     }
@@ -126,9 +179,11 @@ export default function PricingPage() {
 
   const checkPayment = async (silent: boolean = false) => {
     if (!pendingOrderId || !token) return;
+    if (!silent) trackEvent('payment_manual_check', { order_id: pendingOrderId });
     try {
       const data = await pollPaymentStatus(pendingOrderId, token);
       if (data.status === 'PAID') {
+        trackEvent('payment_paid', { order_id: pendingOrderId });
         // 清除定时器
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
@@ -141,13 +196,16 @@ export default function PricingPage() {
         // 修复：正确调用 useAuthStore 的 updateQuota 和 api 的 fetchQuota
         const quotaData = await fetchQuota(token);
         updateQuota(quotaData.quota, quotaData.totalUsed);
+        trackEvent('payment_quota_refreshed', { quota: quotaData.quota, total_used: quotaData.totalUsed });
       } else {
         if (!silent) {
+          trackEvent('payment_not_paid_yet', { order_id: pendingOrderId, status: data.status });
           alert('尚未收到支付确认，请稍后再试。如果已支付，额度会自动到账。');
         }
       }
     } catch {
       if (!silent) {
+        trackEvent('payment_check_fail', { order_id: pendingOrderId });
         alert('网络错误，请重试');
       }
     }
@@ -213,7 +271,7 @@ export default function PricingPage() {
                     ))}
                   </div>
                   <button
-                    onClick={() => plan.price > 0 ? setSelectedPlan({ name: plan.name, price: plan.price, quota: plan.quota, planKey: plan.planKey }) : isLoggedIn ? window.location.href = '/dashboard' : openLoginModal()}
+                    onClick={() => handlePlanClick(plan)}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
                       plan.popular
                         ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-200 hover:shadow-lg'
@@ -239,6 +297,7 @@ export default function PricingPage() {
       <PaymentModal
         plan={selectedPlan}
         onClose={() => {
+          trackEvent('payment_modal_close', { has_pending_order: !!pendingOrderId, pay_success: paySuccess });
           setSelectedPlan(null);
           setPaySuccess(false);
           setPendingOrderId(null);
