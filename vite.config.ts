@@ -17,7 +17,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://react-rewrite-application-architect.vercel.app",
+        target: "https://www.paperfixes.com",
         changeOrigin: true,
         secure: true,
       },
