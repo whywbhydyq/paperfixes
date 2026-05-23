@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck, FileText, Zap, ArrowRight, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, FileText, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function HomePage() {
   return (
@@ -26,16 +26,8 @@ export default function HomePage() {
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 leading-relaxed">
             粘贴摘要、引言、文献综述或结论等高风险段落，PaperFix 会在保留原意和技术术语的前提下，
-            优化机器化表达、重构句式并控制字数。
-            <span className="font-semibold text-gray-800">结果仅供写作辅助，提交前请人工复核。</span>
+            优化机器化表达、重构句式并控制字数，适合逐段处理和对照修改。
           </p>
-
-          <div className="mx-auto mt-5 flex max-w-2xl items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left text-sm leading-6 text-amber-800">
-            <AlertTriangle size={17} className="mt-0.5 shrink-0" />
-            <p>
-              PaperFix 不承诺任何检测平台一定通过，也不能替代原创研究。请重点复核原意、数据、引用、术语和段落衔接。
-            </p>
-          </div>
 
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
@@ -69,7 +61,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
-              人工复核辅助
+              支持对照修改
             </div>
           </div>
         </div>
@@ -80,7 +72,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900">专业学术改写，而非简单替换</h2>
-            <p className="mt-3 text-gray-500">面向论文段落的表达优化流程，每一步都需要保留原意并便于人工复核</p>
+            <p className="mt-3 text-gray-500">面向论文段落的表达优化流程，尽量保留原意、术语和篇幅结构</p>
           </div>
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -100,7 +92,7 @@ export default function HomePage() {
               </div>
               <h3 className="mb-3 text-lg font-semibold text-gray-900">技术术语保护</h3>
               <p className="text-sm leading-relaxed text-gray-500">
-                Django、Ceph、JWT、ORM、views.py 等专有名词会尽量保持稳定。计算机、医学、理工科论文仍需人工复核关键术语。
+                Django、Ceph、JWT、ORM、views.py 等专有名词会尽量保持稳定，适合计算机、医学、理工科论文的段落优化。
               </p>
             </div>
 
@@ -143,8 +135,8 @@ export default function HomePage() {
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-xl font-bold text-white shadow-lg shadow-primary-200">
                 3
               </div>
-              <h3 className="mb-2 font-semibold text-gray-900">人工复核</h3>
-              <p className="text-sm text-gray-500">逐段检查原意、术语、数据、引用和上下文衔接后再使用</p>
+              <h3 className="mb-2 font-semibold text-gray-900">对照使用</h3>
+              <p className="text-sm text-gray-500">获取结果后可与原文对照，继续处理下一段或复制结果</p>
             </div>
           </div>
         </div>
@@ -162,7 +154,7 @@ export default function HomePage() {
                 '输出字数控制在原文±5%以内',
                 '失败自动退还额度',
                 '支持手机号和邮箱登录',
-                '结果仅供写作辅助，必须人工复核',
+                '支持分段处理与对照修改',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-3">
                   <CheckCircle2 size={18} className="shrink-0 text-primary-600" />
