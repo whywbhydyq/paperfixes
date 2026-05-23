@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import JobPoller from '../components/JobPoller';
-import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift, Wand2 } from 'lucide-react';
+import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift, Wand2, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
@@ -24,6 +24,7 @@ type Phase = 'input' | 'processing' | 'done';
 
 const MIN_CHARS = 40;
 const SAMPLE_TEXT = '随着人工智能生成内容技术的快速发展，AIGC 在论文写作中的应用越来越广泛。虽然该技术能够提高文本生成效率，但也容易导致论文表达出现模板化、概括化和机器化的问题。因此，本文从文本表达优化角度出发，对相关内容进行分析，并提出一种更自然的学术表达改写思路。';
+const REVIEW_ITEMS = ['原意是否保持一致', '术语、变量、指标或药物名是否准确', '数据、引用和结论是否未被改动', '上下文衔接是否自然', '是否符合学校、导师或期刊要求'];
 
 const countChars = (s: string) => s.replace(/\s/g, '').length;
 
@@ -168,6 +169,11 @@ export default function ReducePage() {
           </div>
         )}
 
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>请勿提交个人隐私、未公开数据或敏感项目信息。优化结果仅供写作辅助，不能保证任何检测平台通过，使用前必须人工复核。</span>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
@@ -246,7 +252,23 @@ export default function ReducePage() {
             )}
 
             {phase === 'done' && (
-              <div className="custom-scrollbar min-h-[460px] rounded-2xl border border-green-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
+              <div className="space-y-4">
+                <div className="custom-scrollbar min-h-[360px] rounded-2xl border border-green-100 bg-green-50/30 p-4 text-[15px] leading-relaxed whitespace-pre-wrap text-gray-800">{result}</div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold text-amber-900">
+                    <AlertTriangle size={15} /> 提交前人工复核清单
+                  </div>
+                  <p className="mb-3 text-xs leading-5 text-amber-800">本次结果已完成表达层面的优化，但不会判断研究事实是否正确，也不能保证任何检测平台的最终结果。</p>
+                  <ul className="space-y-1.5 text-xs text-amber-800">
+                    {REVIEW_ITEMS.map((item) => (
+                      <li key={item} className="flex items-start gap-2">
+                        <Check size={13} className="mt-0.5 shrink-0" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -259,7 +281,7 @@ export default function ReducePage() {
               </button>
               <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；结果仅供写作辅助，请结合论文要求人工复核。</span>
+                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；结果仅供写作辅助，请结合论文要求人工复核，不要直接替代作者修改。</span>
               </div>
             </>
           ) : phase === 'done' ? (
