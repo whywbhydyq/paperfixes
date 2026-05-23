@@ -8,7 +8,6 @@ const SITE_NAME = 'PaperFix';
 type SeoConfig = {
   title: string;
   description: string;
-  keywords: string;
   path: string;
   robots?: string;
   jsonLd?: Record<string, unknown>[];
@@ -24,12 +23,12 @@ const organizationJsonLd = {
 
 const softwareJsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'PaperFix AI论文降重工具',
+  '@type': ['SoftwareApplication', 'WebApplication'],
+  name: 'PaperFix AI论文降重与学术表达优化工具',
   applicationCategory: 'WritingApplication',
   operatingSystem: 'Web',
   url: SITE_URL,
-  description: 'PaperFix 是面向论文和技术文档的学术改写工具，支持降低AIGC检测率、优化机器化表达，并保护技术术语不被破坏。',
+  description: 'PaperFix 是面向论文和技术文档的学术表达优化工具，支持句式重构、机器化表达优化、术语保护和人工复核辅助。',
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -40,79 +39,68 @@ const softwareJsonLd = {
 
 const routeSeo: Record<string, SeoConfig> = {
   '/': {
-    title: 'AI论文降重工具 - 降低AIGC检测率与机器化表达 | PaperFix',
-    description: 'PaperFix 是面向论文和技术文档的学术改写工具，支持降低AIGC检测率、优化机器化表达、保护技术术语不被破坏。新用户注册即送3次免费体验。',
-    keywords: 'AI论文降重,降低AIGC检测率,论文AI率降低,学术改写,论文改写工具,AI降重工具,降低AI检测率',
+    title: 'AI论文降重与学术表达优化工具 - 免费试用 | PaperFix',
+    description: 'PaperFix 面向论文和技术文档，提供学术表达优化、句式重构、术语保护与字数控制。新用户可免费试用3次；结果仅作写作辅助，请人工复核原意、数据、引用和术语。',
     path: '/',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/home': {
-    title: 'PaperFix 学术改写引擎 - 优化论文表达与AI检测痕迹',
-    description: 'PaperFix 专注学术文本改写，通过句式重构、表达优化和术语保护，帮助论文和技术文档降低机器化表达，提高文本自然度。',
-    keywords: 'PaperFix,学术改写引擎,论文表达优化,技术文档改写,AI文本优化,论文润色改写',
+    title: 'PaperFix 学术表达优化工具 - AI论文降重与人工复核辅助',
+    description: 'PaperFix 专注论文和技术文档表达优化，通过句式重构、术语保护和字数控制，帮助作者降低模板化表达。结果仅供写作辅助，提交前请人工复核。',
     path: '/home',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/pricing': {
-    title: 'PaperFix 定价 - AI论文降重与学术改写套餐',
-    description: '查看 PaperFix 学术改写套餐价格，支持免费体验、基础套餐和专业套餐。按需购买改写额度，处理失败自动退还。',
-    keywords: 'PaperFix定价,AI降重价格,论文改写套餐,AIGC检测率降低工具,学术改写价格',
+    title: 'PaperFix 定价 - AI论文降重与学术表达优化套餐',
+    description: '查看 PaperFix 学术表达优化套餐价格，支持免费体验、基础套餐和专业套餐。按需购买改写额度，处理失败自动退还。',
     path: '/pricing',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/examples': {
     title: 'AI论文降重改写示例 - 摘要、技术论文与实验分析 | PaperFix',
-    description: '查看 PaperFix AI论文降重改写示例，了解如何降低机器化表达、保护技术术语，并通过真实场景判断改写效果。',
-    keywords: 'AI论文降重示例,论文改写示例,降低AIGC检测率示例,论文AI率优化',
+    description: '查看 PaperFix AI论文降重改写示例，了解如何优化机器化表达、保护技术术语，并通过真实场景复核改写效果。',
     path: '/examples',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/faq': {
     title: 'PaperFix 常见问题 - 免费额度、隐私安全与AIGC检测说明',
-    description: '了解 PaperFix 免费体验次数、论文原文处理方式、AIGC检测率说明、失败退还额度和学术诚信使用边界。',
-    keywords: 'PaperFix常见问题,AI论文降重免费,论文隐私安全,AIGC检测率说明',
+    description: '了解 PaperFix 免费体验次数、论文原文处理方式、AIGC检测说明、失败退还额度和学术诚信使用边界。',
     path: '/faq',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/privacy': {
     title: '隐私政策 | PaperFix',
     description: 'PaperFix 隐私政策，说明账号信息、论文文本、第三方服务和数据安全处理方式。',
-    keywords: 'PaperFix隐私政策,论文隐私安全,AI改写隐私',
     path: '/privacy',
     jsonLd: [organizationJsonLd],
   },
   '/terms': {
     title: '服务条款 | PaperFix',
     description: 'PaperFix 服务条款，说明服务性质、学术诚信、检测结果、额度支付和禁止行为。',
-    keywords: 'PaperFix服务条款,AI论文改写规范,学术诚信',
     path: '/terms',
     jsonLd: [organizationJsonLd],
   },
   '/blog': {
     title: 'AI论文降重与AIGC检测优化专题 | PaperFix 学术改写指南',
-    description: 'PaperFix 专题库系统整理AI论文降重、降低AIGC检测率、论文AI率优化、ChatGPT论文检测和学术改写技巧。',
-    keywords: 'AI论文降重专题,AIGC检测优化,论文AI率降低,论文改写指南,学术改写教程',
+    description: 'PaperFix 专题库系统整理AI论文降重、AIGC检测说明、论文AI率优化、ChatGPT论文检测和学术表达优化技巧。',
     path: '/blog',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },
   '/dashboard': {
     title: '用户中心 | PaperFix',
     description: 'PaperFix 用户中心，用于查看额度、改写记录和充值记录。',
-    keywords: 'PaperFix用户中心',
     path: '/dashboard',
     robots: 'noindex,nofollow',
   },
   '/admin': {
     title: '管理控制台 | PaperFix',
     description: 'PaperFix 管理控制台。',
-    keywords: 'PaperFix管理后台',
     path: '/admin',
     robots: 'noindex,nofollow',
   },
   '/payment/done': {
     title: '支付结果 | PaperFix',
     description: 'PaperFix 支付结果页。',
-    keywords: 'PaperFix支付结果',
     path: '/payment/done',
     robots: 'noindex,nofollow',
   },
@@ -159,7 +147,6 @@ function getBlogSeo(pathname: string): SeoConfig | null {
   return {
     title: `${article.title} | PaperFix`,
     description: article.description,
-    keywords: article.keywords,
     path: `/blog/${publicSlug}`,
     jsonLd: [
       organizationJsonLd,
@@ -202,9 +189,8 @@ function getSeoConfig(pathname: string): SeoConfig {
   if (blogSeo) return blogSeo;
 
   return routeSeo[pathname] ?? {
-    title: 'PaperFix - AI论文降重与学术改写工具',
-    description: 'PaperFix 提供学术文本改写、论文表达优化和AI检测痕迹优化服务，帮助论文和技术文档表达更自然。',
-    keywords: 'PaperFix,AI论文降重,学术改写,论文改写工具',
+    title: 'PaperFix - AI论文降重与学术表达优化工具',
+    description: 'PaperFix 提供学术文本改写、论文表达优化和AI检测痕迹优化服务，帮助论文和技术文档表达更自然。结果仅供写作辅助，请人工复核。',
     path: pathname,
   };
 }
@@ -221,7 +207,6 @@ export default function SEO() {
     document.title = seo.title;
 
     upsertMeta('meta[name="description"]', { name: 'description', content: seo.description });
-    upsertMeta('meta[name="keywords"]', { name: 'keywords', content: seo.keywords });
     upsertMeta('meta[name="robots"]', { name: 'robots', content: robots });
     upsertMeta('meta[name="author"]', { name: 'author', content: SITE_NAME });
 
