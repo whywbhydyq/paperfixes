@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /payment/
 
 Sitemap: https://www.paperfixes.com/sitemap.xml
