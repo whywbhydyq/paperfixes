@@ -49,7 +49,7 @@ export default function HomePage() {
           <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400">
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
-              不留存原文
+              原文与结果保存在账号历史
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
@@ -57,7 +57,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
-              字数严格控制
+              篇幅尽量接近原文
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
@@ -100,9 +100,9 @@ export default function HomePage() {
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600 transition-colors group-hover:bg-amber-600 group-hover:text-white">
                 <Zap size={22} />
               </div>
-              <h3 className="mb-3 text-lg font-semibold text-gray-900">字数严格控制</h3>
+              <h3 className="mb-3 text-lg font-semibold text-gray-900">篇幅尽量接近原文</h3>
               <p className="text-sm leading-relaxed text-gray-500">
-                输出字数控制在原文的 ±5% 以内，降低字数暴增或缩减带来的排版和篇幅问题，适合分段处理论文内容。
+                改写时会尽量让输出篇幅接近原文，减少篇幅明显变化带来的排版问题，适合分段处理论文内容。
               </p>
             </div>
           </div>
@@ -149,9 +149,9 @@ export default function HomePage() {
             <h3 className="mb-6 text-2xl font-bold text-gray-900">我们的承诺</h3>
             <div className="grid gap-4 md:grid-cols-2">
               {[
-                '处理完成后不留存任何原文',
+                '原文与结果保存在账号历史',
                 '技术专有名词尽量保持稳定',
-                '输出字数控制在原文±5%以内',
+                '输出篇幅尽量接近原文',
                 '失败自动退还额度',
                 '支持手机号和邮箱登录',
                 '支持分段处理与对照修改',

@@ -101,6 +101,9 @@ export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId,
               <span className="text-lg font-bold text-gray-900">¥{plan.price}</span>
             </div>
             <p className="mt-1 text-xs text-gray-500">{plan.quota} 次改写额度</p>
+            <p className="mt-1 text-xs text-amber-700">
+              付费套餐有效期为 30 天；续购在当前剩余有效期后叠加 30 天，到期后未使用额度清零并恢复免费套餐。
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -163,7 +166,7 @@ export default function PaymentModal({ plan, onClose, onConfirm, pendingOrderId,
           </button>
 
           <p className="text-center text-xs text-gray-400">
-            支付成功后额度即时到账
+            支付成功后额度即时到账，套餐有效期按上述规则计算
           </p>
         </div>
       </div>

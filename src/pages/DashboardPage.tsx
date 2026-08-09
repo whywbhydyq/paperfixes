@@ -131,6 +131,11 @@ export default function DashboardPage() {
             <div>
               <div className="text-lg font-semibold text-gray-900">{displayName}</div>
               <div className="text-sm text-gray-400">{planName}</div>
+              {user?.plan !== 'free' && user?.planExpiresAt && (
+                <div className="mt-1 text-xs text-amber-600">
+                  有效期至 {new Date(user.planExpiresAt).toLocaleString('zh-CN')}
+                </div>
+              )}
             </div>
           </div>
         </div>

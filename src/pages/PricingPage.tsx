@@ -223,7 +223,10 @@ export default function PricingPage() {
       <div className="mx-auto max-w-5xl px-6 py-16">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900">简单透明的定价</h1>
-          <p className="mt-3 text-gray-500">按需购买，额度永久有效</p>
+          <p className="mt-3 text-gray-500">所有付费套餐有效期为 30 天</p>
+          <p className="mt-2 text-sm text-gray-400">
+            有效期内续购将在当前剩余有效期后叠加 30 天；到期后未使用额度清零并恢复免费套餐。
+          </p>
         </div>
         <div className="mt-14 grid gap-6 md:grid-cols-3">
           {plans

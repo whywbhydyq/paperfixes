@@ -45,11 +45,11 @@ export default function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={14} className="text-green-500 shrink-0" />
-                技术术语零修改
+                技术术语尽量保持稳定
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={14} className="text-green-500 shrink-0" />
-                处理完成后不留存原文
+                原文与结果保存在账号历史
               </div>
             </div>
           </div>

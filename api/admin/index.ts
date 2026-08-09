@@ -42,17 +42,27 @@ const DEFAULT_PLANS: PlanConfig[] = [
   },
 ];
 
-function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; changed: boolean } {
+export function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; changed: boolean } {
   let changed = false;
   const normalized = plans.map((plan) => {
-    if (plan.planKey !== 'free') return plan;
+    const features = Array.isArray(plan.features)
+      ? plan.features.filter((feature): feature is string => typeof feature === 'string')
+      : [];
+
+    if (plan.planKey !== 'free') {
+      const nextFeatures = [
+        ...features.filter((feature) => !/永久有效|30\s*天有效/.test(feature)),
+        '30 天有效',
+      ];
+      changed = changed || JSON.stringify(plan.features) !== JSON.stringify(nextFeatures);
+      return { ...plan, features: nextFeatures };
+    }
 
     const freeDefaults = DEFAULT_PLANS[0];
-    const features = plan.features?.length ? plan.features : freeDefaults.features;
-    const nextFeatures = features.map((feature) =>
+    const sourceFeatures = features.length ? features : freeDefaults.features;
+    const nextFeatures = [...new Set(sourceFeatures.map((feature) =>
       /免费|注册|额度/.test(feature) ? '注册即送 3 次免费降 AI 率额度' : feature
-    );
-
+    ))];
     if (!nextFeatures.includes('注册即送 3 次免费降 AI 率额度')) {
       nextFeatures.unshift('注册即送 3 次免费降 AI 率额度');
     }
@@ -118,12 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!auth.ok) return res.status(403).json({ error: '无权限' });
       const { plans } = req.body || {};
       if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans 必须是数组' });
+      const normalized = normalizePlans(plans as PlanConfig[]).plans;
       await prisma.config.upsert({
         where: { key: 'pricing_plans' },
-        update: { value: JSON.stringify(plans) },
-        create: { key: 'pricing_plans', value: JSON.stringify(plans) },
+        update: { value: JSON.stringify(normalized) },
+        create: { key: 'pricing_plans', value: JSON.stringify(normalized) },
       });
-      return res.status(200).json({ plans });
+      return res.status(200).json({ plans: normalized });
     }
   }
 

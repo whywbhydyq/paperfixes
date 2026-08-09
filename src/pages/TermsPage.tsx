@@ -3,7 +3,7 @@ export default function TermsPage() {
     <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-4xl px-6 py-14">
         <h1 className="text-4xl font-extrabold tracking-tight text-gray-900">服务条款</h1>
-        <p className="mt-4 text-sm text-gray-500">更新日期：2026-05-21</p>
+        <p className="mt-4 text-sm text-gray-500">更新日期：2026-08-09</p>
 
         <div className="mt-10 space-y-8 text-sm leading-8 text-gray-700">
           <section>
@@ -20,7 +20,7 @@ export default function TermsPage() {
           </section>
           <section>
             <h2 className="mb-3 text-xl font-bold text-gray-900">4. 额度与支付</h2>
-            <p>用户购买或获得的额度用于提交改写任务。若任务处理失败，系统应按规则自动退还额度。支付、退款或异常订单以平台实际记录为准。</p>
+            <p>用户购买或获得的额度用于提交改写任务。付费套餐有效期为 30 天；有效期内续购将在当前剩余有效期后叠加 30 天，已到期的续购从付款时间重新计算 30 天。到期后未使用额度清零并恢复免费套餐。若任务处理失败，系统按规则自动退还额度。支付、退款或异常订单以平台实际记录为准。</p>
           </section>
           <section>
             <h2 className="mb-3 text-xl font-bold text-gray-900">5. 禁止行为</h2>
