@@ -11,11 +11,16 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'same-origin',
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: 'same-origin',
+      headers,
+    });
+  } catch {
+    throw new Error('无法连接服务器，请检查网络后重试');
+  }
   if (res.status === 401) {
     const { useAuthStore } = await import('../store/useAuthStore');
     const store = useAuthStore.getState();
@@ -24,8 +29,20 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new Error('登录已过期，请重新登录');
   }
   if (!res.ok) {
-    const data = await res.json().catch(() => ({ error: '网络错误' }));
-    throw new Error(data.error || `请求失败 (${res.status})`);
+    let providerMessage = '';
+    try {
+      const data = await res.json() as { error?: unknown; message?: unknown };
+      if (typeof data.error === 'string') providerMessage = data.error;
+      else if (typeof data.message === 'string') providerMessage = data.message;
+    } catch {
+      // Vercel or an upstream proxy can return an HTML error page. That is an
+      // HTTP service failure, not a browser connectivity failure.
+    }
+    if (providerMessage) throw new Error(providerMessage);
+    if (res.status >= 500) {
+      throw new Error(`服务暂不可用，请稍后重试（HTTP ${res.status}）`);
+    }
+    throw new Error(`请求失败（HTTP ${res.status}）`);
   }
   return res.json();
 }

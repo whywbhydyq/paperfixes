@@ -9,7 +9,7 @@ const JobPoller = lazy(() => import('../components/JobPoller'));
 
 function ProcessingFallback() {
   return (
-    <div className="flex min-h-[460px] flex-col items-center justify-center" role="status" aria-live="polite">
+    <div className="flex min-h-[clamp(340px,42vh,400px)] flex-col items-center justify-center" role="status" aria-live="polite">
       <div className="mb-4 h-12 w-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin" />
       <p className="text-sm font-semibold text-gray-700">正在加载处理状态…</p>
     </div>
@@ -200,7 +200,7 @@ export default function ReducePage() {
                   value={text}
                   onChange={handleTextChange}
                   placeholder={"粘贴需要降低 AI 味的论文段落，例如摘要、引言、文献综述或结论。\n\n建议：一次处理一个自然段，改写后再人工复核术语、数据和引用。"}
-                  className={`custom-scrollbar w-full min-h-[460px] resize-none rounded-2xl border bg-gray-50/60 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
+                  className={`custom-scrollbar w-full min-h-[clamp(340px,42vh,400px)] resize-none rounded-2xl border bg-gray-50/60 p-4 text-[15px] leading-relaxed text-gray-800 outline-none transition-colors focus:bg-white focus:ring-2 placeholder:text-gray-400 ${isOverLimit ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-primary-400 focus:ring-primary-100'}`}
                 />
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
                   <div className={`h-full rounded-full transition-all ${isOverLimit ? 'bg-red-400' : 'bg-primary-500'}`} style={{ width: `${progress}%` }} />
@@ -242,7 +242,7 @@ export default function ReducePage() {
             </div>
 
             {phase === 'input' && (
-              <div className="flex min-h-[460px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
+              <div className="flex min-h-[clamp(340px,42vh,400px)] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-10 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-400"><Sparkles size={28} /></div>
                 <p className="text-sm font-semibold text-gray-600">优化结果会显示在这里</p>
                 <p className="mt-1.5 max-w-xs text-xs leading-5 text-gray-400">提交后可与原文对照，重点检查术语、数据、引用和结论是否保持一致。</p>
@@ -250,7 +250,7 @@ export default function ReducePage() {
             )}
 
             {phase === 'processing' && (
-              <div className="min-h-[460px]">
+              <div className="min-h-[clamp(340px,42vh,400px)]">
                 <Suspense fallback={<ProcessingFallback />}>
                   <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
                 </Suspense>

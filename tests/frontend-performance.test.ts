@@ -89,4 +89,16 @@ describe('PaperFix initial entry boundary', () => {
     expect(navbar).not.toMatch(/react-router/);
     expect(footer).not.toMatch(/react-router/);
   });
+
+  it('keeps the existing submit flow below the editor while fitting it into common desktop viewports', () => {
+    const reduce = read('src/pages/ReducePage.tsx');
+
+    expect(reduce).not.toContain('min-h-[460px]');
+    expect(reduce).toContain('min-h-[clamp(340px,42vh,400px)]');
+
+    const editorGrid = reduce.indexOf('grid grid-cols-1 gap-4 lg:grid-cols-2');
+    const submitArea = reduce.indexOf('onClick={handleSubmit}');
+    expect(editorGrid).toBeGreaterThan(-1);
+    expect(submitArea).toBeGreaterThan(editorGrid);
+  });
 });
