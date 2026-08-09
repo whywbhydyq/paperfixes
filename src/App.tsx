@@ -1,22 +1,35 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { initAnalytics, trackPageView } from './lib/analytics';
 import SEO from './components/SEO';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
-import HomePage from './pages/HomePage';
 import ReducePage from './pages/ReducePage';
-import PaymentDonePage from "./pages/PaymentDonePage";
-import PricingPage from './pages/PricingPage';
-import DashboardPage from './pages/DashboardPage';
-import AdminPage from './pages/AdminPage';
-import BlogListPage from './pages/BlogListPage';
-import BlogArticlePage from './pages/BlogArticlePage';
-import ExamplesPage from './pages/ExamplesPage';
-import FaqPage from './pages/FaqPage';
-import PrivacyPage from './pages/PrivacyPage';
-import TermsPage from './pages/TermsPage';
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const PaymentDonePage = lazy(() => import('./pages/PaymentDonePage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const BlogListPage = lazy(() => import('./pages/BlogListPage'));
+const BlogArticlePage = lazy(() => import('./pages/BlogArticlePage'));
+const ExamplesPage = lazy(() => import('./pages/ExamplesPage'));
+const FaqPage = lazy(() => import('./pages/FaqPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+
+function RouteFallback() {
+  return (
+    <div role="status" aria-live="polite" className="mx-auto max-w-6xl px-6 py-16 text-sm text-gray-500">
+      页面加载中…
+    </div>
+  );
+}
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
 
 function ScrollToTop() {
   const { pathname, search } = useLocation();
@@ -40,17 +53,17 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<ReducePage />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/examples" element={<ExamplesPage />} />
-            <Route path="/faq" element={<FaqPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/blog" element={<BlogListPage />} />
-            <Route path="/blog/:slug" element={<BlogArticlePage />} />
-            <Route path="/payment/done" element={<PaymentDonePage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/home" element={<LazyRoute><HomePage /></LazyRoute>} />
+            <Route path="/pricing" element={<LazyRoute><PricingPage /></LazyRoute>} />
+            <Route path="/examples" element={<LazyRoute><ExamplesPage /></LazyRoute>} />
+            <Route path="/faq" element={<LazyRoute><FaqPage /></LazyRoute>} />
+            <Route path="/privacy" element={<LazyRoute><PrivacyPage /></LazyRoute>} />
+            <Route path="/terms" element={<LazyRoute><TermsPage /></LazyRoute>} />
+            <Route path="/blog" element={<LazyRoute><BlogListPage /></LazyRoute>} />
+            <Route path="/blog/:slug" element={<LazyRoute><BlogArticlePage /></LazyRoute>} />
+            <Route path="/payment/done" element={<LazyRoute><PaymentDonePage /></LazyRoute>} />
+            <Route path="/dashboard" element={<LazyRoute><DashboardPage /></LazyRoute>} />
+            <Route path="/admin" element={<LazyRoute><AdminPage /></LazyRoute>} />
           </Routes>
         </main>
         <Footer />
