@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
-import { comparePassword, signToken } from '../_lib/auth.js';
+import { comparePassword, setSessionCookie, signToken } from '../_lib/auth.js';
+import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
+import { toPublicUser } from '../_lib/user-view.js';
+
+const DUMMY_PASSWORD_HASH = '$2b$10$MHQjQoIJVN9fvWe6wJ6NU.KMzSXKnNb9MPC2v2XkWas8XtoXqsN.e';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -8,27 +12,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { phone, password } = req.body || {};
   if (!phone || !password) return res.status(400).json({ error: '请输入手机号和密码' });
 
-  const user = await prisma.user.findFirst({ where: { phone } });
-  if (!user) return res.status(400).json({ error: '手机号未注册' });
-  if (!user.passwordHash) return res.status(400).json({ error: '该账号尚未设置密码，请先用验证码登录' });
+  const user = await prisma.user.findUnique({ where: { phone } });
+  const valid = await comparePassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!user?.passwordHash || !valid) {
+    return res.status(400).json({ error: '手机号或密码错误' });
+  }
 
-  const valid = await comparePassword(password, user.passwordHash);
-  if (!valid) return res.status(400).json({ error: '密码错误' });
-
-  const token = signToken(user.id);
+  const currentUser = await enforcePlanExpiry(user.id);
+  const token = signToken(currentUser.id);
+  setSessionCookie(res, token);
 
   return res.status(200).json({
-    user: {
-      id: user.id,
-      phone: user.phone,
-      email: user.email,
-      wechatName: user.wechatName,
-      role: user.role,
-      plan: user.plan,
-      quota: user.quota,
-      totalUsed: user.totalUsed,
-      hasPassword: !!user.passwordHash,
-    },
-    token,
+    user: toPublicUser(currentUser),
   });
 }

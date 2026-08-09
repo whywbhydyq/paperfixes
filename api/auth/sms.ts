@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
-import { signToken } from '../_lib/auth.js';
+import { setSessionCookie, signToken } from '../_lib/auth.js';
+import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
+import { toPublicUser } from '../_lib/user-view.js';
 import crypto from 'crypto';
 
 function generateCode(): string {
@@ -143,22 +145,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const token = signToken(user.id);
+    const currentUser = await enforcePlanExpiry(user.id);
+    const token = signToken(currentUser.id);
+    setSessionCookie(res, token);
 
     return res.status(200).json({
-      user: {
-        id: user.id,
-        phone: user.phone,
-        email: user.email,
-        wechatName: user.wechatName,
-        role: user.role,
-        plan: user.plan,
-        quota: user.quota,
-        totalUsed: user.totalUsed,
-        hasPassword: !!user.passwordHash,
-      },
-      token,
-      needsPassword: !user.passwordHash,
+      user: toPublicUser(currentUser),
+      needsPassword: !currentUser.passwordHash,
     });
   }
 
