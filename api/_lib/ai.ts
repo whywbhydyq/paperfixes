@@ -88,6 +88,127 @@ export interface AICallStats {
   timestamp: string;
 }
 
+type OpenRouterPayload = {
+  id?: unknown;
+  model?: unknown;
+  choices?: Array<{ message?: { content?: unknown } }>;
+  usage?: {
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    total_tokens?: unknown;
+  };
+  error?: {
+    code?: unknown;
+    metadata?: { error_type?: unknown };
+  };
+};
+
+const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3-flash-preview';
+const MAX_OPENROUTER_RETRIES = 1;
+const MAX_RETRY_DELAY_MS = 2_000;
+const RETRYABLE_STATUSES = new Set([429, 503]);
+
+const STATUS_ERROR_TYPES: Record<number, string> = {
+  401: 'authentication',
+  402: 'payment_required',
+  403: 'permission_denied',
+  429: 'rate_limit_exceeded',
+  502: 'provider_unavailable',
+  503: 'provider_overloaded',
+};
+
+function safeMetadata(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim();
+  return /^[a-zA-Z0-9._:/~-]{1,128}$/.test(normalized) ? normalized : fallback;
+}
+
+function toStatus(value: unknown): number | undefined {
+  const status = typeof value === 'number' ? value : Number(value);
+  return Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : undefined;
+}
+
+function toTokenCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function getErrorMessage(status: number): string {
+  if (status === 401) return 'OpenRouter 凭据无效或已停用';
+  if (status === 402) return 'OpenRouter 账户或密钥余额不足';
+  if (status === 403) return 'OpenRouter 请求被拒绝或密钥权限不足';
+  if (status === 429) return 'OpenRouter 请求过于频繁，请稍后重试';
+  if (status >= 500) return 'OpenRouter 服务暂时不可用';
+  return `OpenRouter API 请求失败 (${status})`;
+}
+
+function getRetryDelayMs(retryAfter: string | null): number | undefined {
+  if (!retryAfter) return undefined;
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    const delayMs = Math.ceil(seconds * 1_000);
+    return delayMs <= MAX_RETRY_DELAY_MS ? delayMs : undefined;
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  if (!Number.isFinite(retryAt)) return undefined;
+  const delayMs = retryAt - Date.now();
+  return delayMs > 0 && delayMs <= MAX_RETRY_DELAY_MS ? delayMs : undefined;
+}
+
+function buildFailureStats(
+  jobId: string | undefined,
+  model: string,
+  startTime: number,
+  error: string,
+): AICallStats {
+  return {
+    jobId: jobId || 'unknown',
+    model,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    durationMs: Date.now() - startTime,
+    success: false,
+    error,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export class OpenRouterRequestError extends Error {
+  readonly status: number;
+  readonly errorType: string;
+  readonly requestId?: string;
+  readonly retryable: boolean;
+  readonly stats: AICallStats;
+
+  constructor(options: {
+    message: string;
+    status: number;
+    errorType: string;
+    requestId?: string;
+    stats: AICallStats;
+  }) {
+    super(options.message);
+    this.name = 'OpenRouterRequestError';
+    this.status = options.status;
+    this.errorType = options.errorType;
+    this.requestId = options.requestId;
+    this.retryable = RETRYABLE_STATUSES.has(options.status);
+    this.stats = options.stats;
+  }
+}
+
+async function readPayload(response: Response): Promise<OpenRouterPayload | null> {
+  try {
+    return await response.json() as OpenRouterPayload;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================
 // OpenRouter 调用核心函数
 // ============================================================
@@ -95,9 +216,11 @@ async function callOpenRouterAPI(
   text: string,
   jobId?: string
 ): Promise<{ result: string; stats: AICallStats }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
-  const siteUrl = process.env.SITE_URL || 'https://react-rewrite-application-architecture-mkd5cflfm.vercel.app/';
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const model = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
+  const fallbackModel = process.env.OPENROUTER_FALLBACK_MODEL?.trim();
+  const siteUrl = process.env.SITE_URL?.trim()
+    || 'https://react-rewrite-application-architecture-mkd5cflfm.vercel.app/';
 
   if (!apiKey) {
     throw new Error('未配置 OPENROUTER_API_KEY');
@@ -105,8 +228,11 @@ async function callOpenRouterAPI(
 
   const startTime = Date.now();
 
+  const modelSelection = fallbackModel && fallbackModel !== model
+    ? { models: [model, fallbackModel] }
+    : { model };
   const requestBody = {
-    model: model,
+    ...modelSelection,
     messages: [
       {
         role: 'system',
@@ -124,101 +250,126 @@ async function callOpenRouterAPI(
     stream: false,                // 非流式，Vercel Serverless 更兼容
   };
 
-  let response: Response;
-  try {
-    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': siteUrl,
-        'X-Title': 'Academic Rewrite Engine',   // 在 OpenRouter 后台显示的应用名
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-  } catch (networkErr) {
+  for (let attempt = 0; attempt <= MAX_OPENROUTER_RETRIES; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': siteUrl,
+          'X-Title': 'Academic Rewrite Engine',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (networkError) {
+      const errorName = safeMetadata(
+        networkError instanceof Error ? networkError.name : undefined,
+        'network_error',
+      );
+      console.error('[OpenRouter Network Error]', {
+        error_type: 'network_error',
+        error_name: errorName,
+        job_id: safeMetadata(jobId, 'unknown'),
+      });
+      const stats = buildFailureStats(jobId, model, startTime, 'network_error');
+      throw Object.assign(new Error('OpenRouter 网络连接失败'), { stats });
+    }
+
+    const data = await readPayload(response);
+    const bodyStatus = toStatus(data?.error?.code);
+    const status = bodyStatus ?? response.status;
+
+    if (!response.ok || data?.error) {
+      const errorType = safeMetadata(
+        data?.error?.metadata?.error_type,
+        STATUS_ERROR_TYPES[status] || (status >= 500 ? 'server_error' : 'api_error'),
+      );
+      const requestId = safeMetadata(
+        response.headers.get('x-request-id') ?? data?.id,
+        '',
+      ) || undefined;
+      const retryDelayMs = RETRYABLE_STATUSES.has(status) && attempt < MAX_OPENROUTER_RETRIES
+        ? getRetryDelayMs(response.headers.get('retry-after'))
+        : undefined;
+
+      if (retryDelayMs !== undefined) {
+        console.warn('[OpenRouter API Retry]', {
+          status,
+          error_type: errorType,
+          request_id: requestId || 'unknown',
+          retry_in_ms: retryDelayMs,
+          attempt: attempt + 1,
+        });
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        continue;
+      }
+
+      console.error('[OpenRouter API Error]', {
+        status,
+        error_type: errorType,
+        request_id: requestId || 'unknown',
+        job_id: safeMetadata(jobId, 'unknown'),
+      });
+      const stats = buildFailureStats(
+        jobId,
+        model,
+        startTime,
+        `HTTP ${status} (${errorType}) request=${requestId || 'unknown'}`,
+      );
+      throw new OpenRouterRequestError({
+        message: getErrorMessage(status),
+        status,
+        errorType,
+        requestId,
+        stats,
+      });
+    }
+
+    const resultText = data?.choices?.[0]?.message?.content;
+    const inputTokens = toTokenCount(data?.usage?.prompt_tokens);
+    const outputTokens = toTokenCount(data?.usage?.completion_tokens);
+    const totalTokens = toTokenCount(data?.usage?.total_tokens);
     const durationMs = Date.now() - startTime;
+
+    if (typeof resultText !== 'string' || !resultText.trim()) {
+      const stats: AICallStats = {
+        jobId: jobId || 'unknown',
+        model,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        durationMs,
+        success: false,
+        error: 'API 返回内容为空',
+        timestamp: new Date().toISOString(),
+      };
+      throw Object.assign(new Error('OpenRouter API 返回内容为空'), { stats });
+    }
+
+    const actualModel = safeMetadata(data?.model, model);
     const stats: AICallStats = {
       jobId: jobId || 'unknown',
-      model,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
+      model: actualModel,
+      inputTokens,
+      outputTokens,
+      totalTokens,
       durationMs,
-      success: false,
-      error: '网络连接失败',
+      success: true,
       timestamp: new Date().toISOString(),
     };
-    console.error('[OpenRouter] 网络错误:', networkErr);
-    throw Object.assign(new Error('OpenRouter 网络连接失败'), { stats });
-  }
 
-  const durationMs = Date.now() - startTime;
-
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '无法读取错误信息');
-    console.error('[OpenRouter API Error]', response.status, errBody);
-
-    const stats: AICallStats = {
-      jobId: jobId || 'unknown',
-      model,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      durationMs,
-      success: false,
-      error: `HTTP ${response.status}: ${errBody.slice(0, 200)}`,
-      timestamp: new Date().toISOString(),
-    };
-    throw Object.assign(
-      new Error(`OpenRouter API 调用失败 (${response.status})`),
-      { stats }
+    console.log(
+      `[OpenRouter Stats] jobId=${jobId} model=${stats.model} ` +
+      `tokens=${inputTokens}+${outputTokens}=${totalTokens} ` +
+      `duration=${durationMs}ms success=true`
     );
+
+    return { result: resultText.trim(), stats };
   }
 
-  const data = await response.json();
-
-  // 提取结果文本
-  const resultText = data?.choices?.[0]?.message?.content;
-  if (!resultText) {
-    const stats: AICallStats = {
-      jobId: jobId || 'unknown',
-      model,
-      inputTokens: data?.usage?.prompt_tokens || 0,
-      outputTokens: data?.usage?.completion_tokens || 0,
-      totalTokens: data?.usage?.total_tokens || 0,
-      durationMs,
-      success: false,
-      error: 'API 返回内容为空',
-      timestamp: new Date().toISOString(),
-    };
-    throw Object.assign(new Error('OpenRouter API 返回内容为空'), { stats });
-  }
-
-  // 提取 Token 使用量（OpenRouter 兼容 OpenAI 格式）
-  const inputTokens = data?.usage?.prompt_tokens || 0;
-  const outputTokens = data?.usage?.completion_tokens || 0;
-  const totalTokens = data?.usage?.total_tokens || 0;
-
-  const stats: AICallStats = {
-    jobId: jobId || 'unknown',
-    model: data?.model || model,  // 使用 API 返回的实际模型名
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    durationMs,
-    success: true,
-    timestamp: new Date().toISOString(),
-  };
-
-  // 打印统计日志（在 Vercel Functions 日志中可见）
-  console.log(
-    `[OpenRouter Stats] jobId=${jobId} model=${stats.model} ` +
-    `tokens=${inputTokens}+${outputTokens}=${totalTokens} ` +
-    `duration=${durationMs}ms success=true`
-  );
-
-  return { result: resultText.trim(), stats };
+  throw new Error('OpenRouter retry loop exited unexpectedly');
 }
 
 // ============================================================
