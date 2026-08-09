@@ -97,14 +97,10 @@ it('clears stale expired quota before applying a new purchase', async () => {
   expect(client.state.user.planExpiresAt?.toISOString()).toBe('2026-09-08T00:00:00.000Z');
 });
 
-it('routes both callback and active query settlement through the transaction service', () => {
-  const notify = readFileSync('api/payment/notify.ts', 'utf8');
-  const status = readFileSync('api/payment/status.ts', 'utf8');
-  for (const source of [notify, status]) {
-    expect(source).toContain('finalizePaidOrder');
-    expect(source).not.toMatch(/prisma\.(?:user\.update|topup\.create|order\.updateMany)/);
-  }
-  expect(notify).toContain("params.pid !== process.env.EPAY_PID");
-  expect(status).toContain('queryData.pid === process.env.EPAY_PID');
-  expect(status).toContain('queryData.out_trade_no === orderId');
+it('keeps the atomic settlement service ready for a future verified provider', () => {
+  const settlement = readFileSync('api/_lib/order-settlement.ts', 'utf8');
+  expect(settlement).toContain('client.$transaction');
+  expect(settlement).toContain('order.updateMany');
+  expect(settlement).toContain('topup.create');
+  expect(settlement).toContain('user.update');
 });

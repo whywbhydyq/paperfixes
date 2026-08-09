@@ -1,76 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import prisma from '../_lib/prisma.js';
-import { genSign } from '../_lib/payment.js';
-import { getUserFromRequest } from '../_lib/auth.js';
 import { rejectCrossOriginMutation } from '../_lib/http-security.js';
-
-// V1 MD5 签名：md5(排序参数拼接 + KEY)，直接拼接不加 &key=
-async function getPlanConfig(planKey: string) {
-  try {
-    const config = await prisma.config.findUnique({ where: { key: 'pricing_plans' } });
-    if (config) {
-      const plans = JSON.parse(config.value);
-      const plan = plans.find((p: { planKey: string; active: boolean }) => p.planKey === planKey && p.active);
-      if (plan) return { price: Number(plan.price), name: plan.name, quota: Number(plan.quota) };
-    }
-  } catch (err) {
-    console.error('[支付] 读取套餐配置失败:', err);
-  }
-  return null;
-}
+import {
+  ONLINE_PAYMENT_MAINTENANCE_MESSAGE,
+  ONLINE_PAYMENT_UNAVAILABLE_CODE,
+} from '../../shared/payment-maintenance.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   if (rejectCrossOriginMutation(req, res)) return;
 
-  const userId = getUserFromRequest(req);
-  if (!userId) return res.status(401).json({ error: '未登录' });
-
-  const { planKey, payType } = req.body || {};
-  if (!planKey) return res.status(400).json({ error: '缺少套餐参数' });
-
-  const plan = await getPlanConfig(planKey);
-  if (!plan) return res.status(400).json({ error: '无效套餐' });
-
-  const pid  = process.env.EPAY_PID;
-  const key  = process.env.EPAY_KEY;
-  const base = process.env.EPAY_API;
-  if (!pid || !key || !base) {
-    console.error('[支付] 环境变量缺失');
-    return res.status(500).json({ error: '支付配置错误' });
-  }
-
-  const site = (process.env.SITE_URL || '').replace(/\/?$/, '') || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
-
-  const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-  try {
-    await prisma.order.create({
-      data: { id: orderId, userId, planKey, amount: plan.price, quota: plan.quota, status: 'PENDING' },
-    });
-  } catch (err) {
-    console.error('[支付] 创建订单失败:', err);
-    return res.status(500).json({ error: '创建订单失败' });
-  }
-
-  // V1 参数：不要 timestamp
-  const params: Record<string, string> = {
-    pid,
-    type: payType === 'wxpay' ? 'wxpay' : 'alipay',
-    out_trade_no: orderId,
-    notify_url:  `${site}/api/payment/notify`,
-    return_url:  `${site}/payment/done`,
-    name:  plan.name,
-    money: plan.price.toFixed(2),
-  };
-
-  const sign = genSign(params, key);
-  const baseUrl = base.replace(/\/?$/, '/');
-  // V1 提交地址：submit.php
-  const submitUrl = `${baseUrl}submit.php`;
-
-  console.log(`[支付] 订单=${orderId} 用户=${userId} 套餐=${planKey} 金额=${plan.price}`);
-  return res.status(200).json({ submitUrl, params: { ...params, sign, sign_type: 'MD5' }, orderId });
+  return res.status(503).json({
+    code: ONLINE_PAYMENT_UNAVAILABLE_CODE,
+    error: ONLINE_PAYMENT_MAINTENANCE_MESSAGE,
+  });
 }

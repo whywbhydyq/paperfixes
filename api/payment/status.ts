@@ -1,16 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
-import { finalizePaidOrder } from '../_lib/order-settlement.js';
-
-interface ProviderOrderQuery {
-  code?: number;
-  status?: string | number;
-  pid?: string;
-  out_trade_no?: string;
-  trade_no?: string;
-  money?: string | number;
-}
+import { ONLINE_PAYMENT_MAINTENANCE_MESSAGE } from '../../shared/payment-maintenance.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -27,53 +18,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const order = await prisma.order.findFirst({ where: { id: orderId, userId } });
-  if (!order) return res.status(200).json({ status: 'NOT_FOUND' });
-  if (order.status === 'PAID') return res.status(200).json({ status: 'PAID' });
-
-  if (order.status === 'PENDING') {
-    const elapsed = Date.now() - order.createdAt.getTime();
-    if (elapsed > 10_000) {
-      try {
-        const pid = process.env.EPAY_PID;
-        const key = process.env.EPAY_KEY;
-        const base = process.env.EPAY_API;
-        if (pid && key && base) {
-          const baseUrl = base.replace(/\/?$/, '/');
-          const queryParams = new URLSearchParams({
-            act: 'order',
-            pid,
-            key,
-            out_trade_no: orderId,
-          });
-          const queryRes = await fetch(`${baseUrl}api.php?${queryParams.toString()}`);
-          if (!queryRes.ok) throw new Error(`PAYMENT_QUERY_HTTP_${queryRes.status}`);
-          const queryData = (await queryRes.json()) as ProviderOrderQuery;
-
-          const providerConfirmsPayment = queryData.code === 1
-            && Number(queryData.status) === 1
-            && queryData.pid === process.env.EPAY_PID
-            && queryData.out_trade_no === orderId
-            && typeof queryData.trade_no === 'string'
-            && queryData.trade_no.trim().length > 0
-            && queryData.money !== undefined;
-          if (providerConfirmsPayment) {
-            await finalizePaidOrder({
-              orderId,
-              providerTradeNo: queryData.trade_no as string,
-              paidAmount: queryData.money as string | number,
-            });
-            return res.status(200).json({ status: 'PAID' });
-          }
-        }
-      } catch (error) {
-        console.error('[payment status] provider query or settlement failed', {
-          orderId,
-          code: error instanceof Error ? error.message : 'unknown',
-        });
-      }
-    }
-  }
-
-  const latest = await prisma.order.findFirst({ where: { id: orderId, userId } });
-  return res.status(200).json({ status: latest?.status ?? 'NOT_FOUND' });
+  return res.status(200).json({
+    status: order?.status ?? 'NOT_FOUND',
+    paymentAvailable: false,
+    message: ONLINE_PAYMENT_MAINTENANCE_MESSAGE,
+  });
 }
