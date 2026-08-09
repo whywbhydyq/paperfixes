@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getArticleByPublicSlug, getPublicArticleSlug } from '../data/articleSlugs';
+import { getArticleMetadataByPublicSlug } from '../data/articleMetadata';
 
 const SITE_URL = 'https://www.paperfixes.com';
 const SITE_NAME = 'PaperFix';
@@ -139,10 +139,10 @@ function updateJsonLd(items: Record<string, unknown>[] = []) {
 function getBlogSeo(pathname: string): SeoConfig | null {
   const match = pathname.match(/^\/blog\/([^/]+)$/);
   if (!match) return null;
-  const article = getArticleByPublicSlug(match[1]);
+  const article = getArticleMetadataByPublicSlug(match[1]);
   if (!article) return null;
 
-  const publicSlug = getPublicArticleSlug(article);
+  const publicSlug = article.publicSlug;
   const url = `${SITE_URL}/blog/${publicSlug}`;
   return {
     title: `${article.title} | PaperFix`,

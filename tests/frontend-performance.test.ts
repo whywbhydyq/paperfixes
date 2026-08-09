@@ -27,4 +27,27 @@ describe('PaperFix initial entry boundary', () => {
       expect(app).toMatch(new RegExp(`lazy\\(\\(\\) => import\\(['"]\\.\\/pages\\/${page}['"]\\)\\)`));
     }
   });
+
+  it('keeps SEO independent from full article bodies', async () => {
+    const seo = read('src/components/SEO.tsx');
+    const slugMap = read('src/data/articleSlugMap.ts');
+
+    expect(seo).toMatch(/articleMetadata/);
+    expect(seo).not.toMatch(/articleSlugs|data\/articles/);
+    expect(slugMap).not.toMatch(/from ['"].*articles/);
+
+    const { articles } = await import('../src/data/articles');
+    const { articleMetadata } = await import('../src/data/articleMetadata');
+    const { toPublicArticleSlug } = await import('../src/data/articleSlugMap');
+    expect(articleMetadata).toHaveLength(articles.length);
+    expect(articleMetadata.map((item) => item.internalSlug)).toEqual(articles.map((item) => item.slug));
+    expect(articleMetadata).toEqual(articles.map((article) => ({
+      internalSlug: article.slug,
+      publicSlug: toPublicArticleSlug(article.slug),
+      title: article.title,
+      description: article.description,
+      updatedAt: article.updatedAt,
+      faqs: article.faqs,
+    })));
+  });
 });
