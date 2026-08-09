@@ -1,7 +1,9 @@
-import { createHmac, randomUUID } from 'crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 
-function percentEncode(str: string): string {
-  return encodeURIComponent(str)
+export type SmsDelivery = { mode: 'provider' | 'development' };
+
+function percentEncode(value: string): string {
+  return encodeURIComponent(value)
     .replace(/!/g, '%21')
     .replace(/'/g, '%27')
     .replace(/\(/g, '%28')
@@ -9,17 +11,17 @@ function percentEncode(str: string): string {
     .replace(/\*/g, '%2A');
 }
 
-export async function sendSms(phone: string, code: string): Promise<boolean> {
+export async function sendSms(phone: string, code: string): Promise<SmsDelivery> {
   const accessKeyId = (process.env.ALIYUN_ACCESS_KEY_ID || '').trim();
   const accessKeySecret = (process.env.ALIYUN_ACCESS_KEY_SECRET || '').trim();
 
   if (!accessKeyId || !accessKeySecret) {
-    console.log(`[SMS] 开发模式：未配置阿里云密钥，验证码 = ${code}`);
-    return true;
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SMS provider is not configured');
+    }
+    console.info('[SMS] development delivery bypass enabled');
+    return { mode: 'development' };
   }
-
-  const signName = process.env.SMS_SIGN_NAME || '速通互联验证码';
-  const templateCode = process.env.SMS_TEMPLATE_CODE || '100001';
 
   const params: Record<string, string> = {
     AccessKeyId: accessKeyId,
@@ -30,44 +32,36 @@ export async function sendSms(phone: string, code: string): Promise<boolean> {
     Interval: '60',
     PhoneNumber: phone,
     RegionId: 'cn-hangzhou',
-    SignName: signName,
+    SignName: process.env.SMS_SIGN_NAME || '速通互联验证码',
     SignatureMethod: 'HMAC-SHA1',
     SignatureNonce: randomUUID(),
     SignatureVersion: '1.0',
-    TemplateCode: templateCode,
+    TemplateCode: process.env.SMS_TEMPLATE_CODE || '100001',
     TemplateParam: JSON.stringify({ code, min: '5' }),
     Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     ValidTime: '300',
     Version: '2017-05-25',
   };
-
-  // Step 1: Sort and percent-encode parameters
-  const sortedKeys = Object.keys(params).sort();
-  const canonicalQuery = sortedKeys
-    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
+  const canonicalQuery = Object.keys(params)
+    .sort()
+    .map((key) => `${percentEncode(key)}=${percentEncode(params[key])}`)
     .join('&');
-
-  // Step 2: Construct string to sign
   const stringToSign = `GET&${percentEncode('/')}&${percentEncode(canonicalQuery)}`;
-
-  // Step 3: HMAC-SHA1 signature
   const signature = createHmac('sha1', `${accessKeySecret}&`)
     .update(stringToSign)
     .digest('base64');
-
-  // Step 4: Build final URL — dypnsapi, NOT dysmsapi
   const url = `https://dypnsapi.aliyuncs.com/?${canonicalQuery}&Signature=${percentEncode(signature)}`;
 
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    console.log('[SMS] 阿里云返回:', JSON.stringify(data));
-
-    if (data.Code === 'OK' && data.Success) return true;
-    console.error(`[SMS] 发送失败: ${data.Code} - ${data.Message}`);
-    return false;
-  } catch (err) {
-    console.error('[SMS] 请求异常:', err);
-    return false;
+    const response = await fetch(url);
+    const data = (await response.json()) as { Code?: string; Success?: boolean };
+    if (data.Code === 'OK' && data.Success === true) return { mode: 'provider' };
+    console.error('[SMS] provider rejected request', { code: data.Code });
+    throw new Error('SMS provider rejected the request');
+  } catch (error) {
+    console.error('[SMS] provider request failed', {
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+    throw new Error('SMS provider rejected the request');
   }
 }

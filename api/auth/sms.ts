@@ -1,150 +1,145 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { setSessionCookie, signToken } from '../_lib/auth.js';
+import { getClientIp } from '../_lib/http-security.js';
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
+import {
+  generateSmsCode,
+  getSmsRateLimitViolation,
+  hashSmsCode,
+  matchesSmsCode,
+  MAX_SMS_VERIFY_ATTEMPTS,
+} from '../_lib/sms-code.js';
+import { sendSms } from '../_lib/sms.js';
 import { toPublicUser } from '../_lib/user-view.js';
-import crypto from 'crypto';
 
-function generateCode(): string {
-  return Math.random().toString().slice(2, 8);
+function isValidPhone(phone: unknown): phone is string {
+  return typeof phone === 'string' && /^1[3-9]\d{9}$/.test(phone);
 }
 
-function isValidPhone(phone: string): boolean {
-  return /^1[3-9]\d{9}$/.test(phone);
-}
-
-function percentEncode(str: string): string {
-  return encodeURIComponent(str)
-    .replace(/!/g, '%21')
-    .replace(/'/g, '%27')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/\*/g, '%2A');
-}
-
-async function sendSms(phone: string, code: string): Promise<boolean> {
-  const accessKeyId = (process.env.ALIYUN_ACCESS_KEY_ID || '').trim();
-  const accessKeySecret = (process.env.ALIYUN_ACCESS_KEY_SECRET || '').trim();
-
-  if (!accessKeyId || !accessKeySecret) {
-    console.log('[SMS-DEV] ', phone, ' => ', code);
-    return true;
-  }
-
-  const signName = process.env.SMS_SIGN_NAME || '速通互联验证码';
-  const templateCode = process.env.SMS_TEMPLATE_CODE || '100001';
-
-  const params: Record<string, string> = {
-    AccessKeyId: accessKeyId,
-    Action: 'SendSmsVerifyCode',
-    CodeLength: '6',
-    CodeType: '1',
-    Format: 'JSON',
-    Interval: '60',
-    PhoneNumber: phone,
-    RegionId: 'cn-hangzhou',
-    SignName: signName,
-    SignatureMethod: 'HMAC-SHA1',
-    SignatureNonce: crypto.randomUUID(),
-    SignatureVersion: '1.0',
-    TemplateCode: templateCode,
-    TemplateParam: JSON.stringify({ code, min: '5' }),
-    Timestamp: new Date().toISOString().replace(/\.\d+Z/, 'Z'),
-    ValidTime: '300',
-    Version: '2017-05-25',
-  };
-
-  const sortedKeys = Object.keys(params).sort();
-  const canonicalQuery = sortedKeys
-    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
-    .join('&');
-
-  const stringToSign = `GET&${percentEncode('/')}&${percentEncode(canonicalQuery)}`;
-  const signature = crypto.createHmac('sha1', `${accessKeySecret}&`)
-    .update(stringToSign)
-    .digest('base64');
-
-  const url = `https://dypnsapi.aliyuncs.com/?${canonicalQuery}&Signature=${percentEncode(signature)}`;
-
-  try {
-    const res = await fetch(url);
-    const data = await res.json() as any;
-    console.log('[SMS] 阿里云返回:', JSON.stringify(data));
-    return data.Code === 'OK' && data.Success === true;
-  } catch (err) {
-    console.error('[SMS] 发送失败:', err);
-    return false;
-  }
-}
+const verificationError = '验证码错误或已过期';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { action, phone, code } = req.body || {};
-
-  if (!phone || !isValidPhone(phone)) {
+  if (!isValidPhone(phone)) {
     return res.status(400).json({ error: '请输入正确的手机号' });
   }
 
   if (action === 'send') {
-    const recent = await prisma.smsCode.findFirst({
-      where: { phone, createdAt: { gt: new Date(Date.now() - 60000) } },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (recent) {
-      return res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
+    const now = new Date();
+    const requestIp = getClientIp(req);
+    const minuteAgo = new Date(now.getTime() - 60 * 1000);
+    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const [phoneMinute, phoneDay, ipHour, ipDay] = await Promise.all([
+      prisma.smsCode.count({ where: { phone, createdAt: { gt: minuteAgo } } }),
+      prisma.smsCode.count({ where: { phone, createdAt: { gt: dayAgo } } }),
+      prisma.smsCode.count({ where: { requestIp, createdAt: { gt: hourAgo } } }),
+      prisma.smsCode.count({ where: { requestIp, createdAt: { gt: dayAgo } } }),
+    ]);
+    const violation = getSmsRateLimitViolation({ phoneMinute, phoneDay, ipHour, ipDay });
+    if (violation) {
+      return res.status(429).json({ success: false, error: violation, message: violation });
     }
 
-    const dailyCount = await prisma.smsCode.count({
-      where: {
+    const newCode = generateSmsCode();
+    let digest: string;
+    try {
+      digest = hashSmsCode(phone, newCode);
+    } catch (error) {
+      console.error('[SMS] code hashing is not configured', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+      return res.status(500).json({ success: false, error: '验证码发送失败，请稍后重试' });
+    }
+
+    await prisma.smsCode.updateMany({
+      where: { phone, used: false },
+      data: { used: true },
+    });
+    const smsCode = await prisma.smsCode.create({
+      data: {
         phone,
-        createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        code: digest,
+        requestIp,
+        expiresAt: new Date(now.getTime() + 5 * 60 * 1000),
       },
     });
-    if (dailyCount >= 10) {
-      return res.status(429).json({ success: false, message: '该手机号今日发送次数已达上限，请明天再试' });
+
+    try {
+      const delivery = await sendSms(phone, newCode);
+      return res.status(200).json({
+        success: true,
+        message: '验证码已发送',
+        ...(delivery.mode === 'development' && process.env.NODE_ENV === 'development'
+          ? { devCode: newCode }
+          : {}),
+      });
+    } catch (error) {
+      await prisma.smsCode.updateMany({
+        where: { id: smsCode.id, used: false },
+        data: { used: true },
+      });
+      console.error('[SMS] delivery failed', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+      return res.status(500).json({ success: false, error: '验证码发送失败，请稍后重试' });
     }
-
-    const newCode = generateCode();
-    const ok = await sendSms(phone, newCode);
-    if (!ok) {
-      return res.status(500).json({ success: false, message: '验证码发送失败，请稍后重试' });
-    }
-
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    await prisma.smsCode.deleteMany({ where: { phone, expiresAt: { lt: new Date() } } });
-    await prisma.smsCode.create({ data: { phone, code: newCode, expiresAt } });
-
-    const isDev = !process.env.ALIYUN_ACCESS_KEY_ID;
-    return res.status(200).json({
-      success: true,
-      message: '验证码已发送',
-      ...(isDev ? { devCode: newCode } : {}),
-    });
   }
 
   if (action === 'verify') {
-    if (!code) return res.status(400).json({ error: '请输入验证码' });
+    if (typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: verificationError });
+    }
 
+    const now = new Date();
     const smsCode = await prisma.smsCode.findFirst({
-      where: { phone, expiresAt: { gt: new Date() } },
+      where: {
+        phone,
+        used: false,
+        expiresAt: { gt: now },
+        attempts: { lt: MAX_SMS_VERIFY_ATTEMPTS },
+      },
       orderBy: { createdAt: 'desc' },
     });
+    if (!smsCode) return res.status(400).json({ error: verificationError });
 
-    if (!smsCode || smsCode.code !== code) {
-      return res.status(400).json({ error: '验证码错误或已过期' });
-    }
-
-    await prisma.smsCode.delete({ where: { id: smsCode.id } });
-
-    let user = await prisma.user.findFirst({ where: { phone } });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: { phone, plan: 'free', quota: 3, totalUsed: 0, role: 'user' },
+    let matches = false;
+    try {
+      matches = matchesSmsCode(phone, code, smsCode.code);
+    } catch (error) {
+      console.error('[SMS] code verification is not configured', {
+        message: error instanceof Error ? error.message : 'unknown',
       });
+      return res.status(500).json({ error: '验证码验证暂不可用，请稍后重试' });
     }
 
+    if (!matches) {
+      await prisma.smsCode.updateMany({
+        where: { id: smsCode.id, used: false, attempts: smsCode.attempts },
+        data: { attempts: { increment: 1 } },
+      });
+      return res.status(400).json({ error: verificationError });
+    }
+
+    const consumed = await prisma.smsCode.updateMany({
+      where: {
+        id: smsCode.id,
+        used: false,
+        attempts: { lt: MAX_SMS_VERIFY_ATTEMPTS },
+        expiresAt: { gt: now },
+      },
+      data: { used: true },
+    });
+    if (consumed.count !== 1) return res.status(400).json({ error: verificationError });
+
+    const user = await prisma.user.upsert({
+      where: { phone },
+      update: {},
+      create: { phone, plan: 'free', quota: 3, totalUsed: 0, role: 'user' },
+    });
     const currentUser = await enforcePlanExpiry(user.id);
     const token = signToken(currentUser.id);
     setSessionCookie(res, token);
