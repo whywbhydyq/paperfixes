@@ -7,7 +7,7 @@ import {
   signToken,
 } from '../api/_lib/auth';
 import { toPublicUser } from '../api/_lib/user-view';
-import logoutHandler from '../api/auth/logout';
+import phoneLoginHandler from '../api/auth/phone-login';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -62,7 +62,10 @@ describe('session cookies', () => {
       status: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
     };
-    await logoutHandler({ method: 'POST' } as any, response as any);
+    await phoneLoginHandler(
+      { method: 'POST', query: { operation: 'logout' } } as any,
+      response as any,
+    );
     expect(response.status).toHaveBeenCalledWith(200);
     expect(headers.get('Set-Cookie')).toContain('Max-Age=0');
   });

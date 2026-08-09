@@ -55,7 +55,6 @@ it('guards browser mutation routes but exempts the signed payment callback', () 
     'api/auth/sms.ts',
     'api/auth/phone-login.ts',
     'api/auth/set-password.ts',
-    'api/auth/logout.ts',
     'api/user/index.ts',
     'api/admin/index.ts',
     'api/payment/create.ts',

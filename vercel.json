@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/auth/logout",
+      "destination": "/api/auth/phone-login?operation=logout"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
