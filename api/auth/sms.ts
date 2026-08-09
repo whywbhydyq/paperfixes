@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { setSessionCookie, signToken } from '../_lib/auth.js';
-import { getClientIp } from '../_lib/http-security.js';
+import { getClientIp, rejectCrossOriginMutation } from '../_lib/http-security.js';
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 import {
   generateSmsCode,
@@ -21,6 +21,7 @@ const verificationError = '验证码错误或已过期';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (rejectCrossOriginMutation(req, res)) return;
 
   const { action, phone, code } = req.body || {};
   if (!isValidPhone(phone)) {

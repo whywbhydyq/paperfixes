@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { genSign } from '../_lib/payment.js';
 import { getUserFromRequest } from '../_lib/auth.js';
+import { rejectCrossOriginMutation } from '../_lib/http-security.js';
 
 // V1 MD5 签名：md5(排序参数拼接 + KEY)，直接拼接不加 &key=
 async function getPlanConfig(planKey: string) {
@@ -22,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  if (rejectCrossOriginMutation(req, res)) return;
 
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '未登录' });

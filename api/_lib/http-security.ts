@@ -3,7 +3,7 @@ import type { VercelResponse } from '@vercel/node';
 type HeaderValue = string | string[] | undefined;
 
 export interface RequestWithHeaders {
-  headers: Record<string, HeaderValue>;
+  headers?: Record<string, HeaderValue>;
   socket?: { remoteAddress?: string | undefined };
 }
 
@@ -12,18 +12,20 @@ function first(value: HeaderValue): string | undefined {
 }
 
 export function getClientIp(req: RequestWithHeaders): string {
-  const forwarded = first(req.headers['x-forwarded-for']);
-  const direct = first(req.headers['x-real-ip']);
+  const headers = req.headers ?? {};
+  const forwarded = first(headers['x-forwarded-for']);
+  const direct = first(headers['x-real-ip']);
   return (forwarded?.split(',')[0] || direct || req.socket?.remoteAddress || 'unknown')
     .trim()
     .slice(0, 64);
 }
 
 export function isAllowedBrowserOrigin(req: RequestWithHeaders): boolean {
-  const origin = first(req.headers.origin);
+  const headers = req.headers ?? {};
+  const origin = first(headers.origin);
   if (!origin) return true;
-  const host = first(req.headers['x-forwarded-host']) || first(req.headers.host);
-  const protocol = first(req.headers['x-forwarded-proto']) || 'https';
+  const host = first(headers['x-forwarded-host']) || first(headers.host);
+  const protocol = first(headers['x-forwarded-proto']) || 'https';
   const allowed = new Set<string>();
   if (host) allowed.add(`${protocol}://${host}`);
   if (process.env.SITE_URL) {

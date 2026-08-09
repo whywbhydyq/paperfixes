@@ -3,11 +3,13 @@ import prisma from '../_lib/prisma.js';
 import { comparePassword, setSessionCookie, signToken } from '../_lib/auth.js';
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 import { toPublicUser } from '../_lib/user-view.js';
+import { rejectCrossOriginMutation } from '../_lib/http-security.js';
 
 const DUMMY_PASSWORD_HASH = '$2b$10$MHQjQoIJVN9fvWe6wJ6NU.KMzSXKnNb9MPC2v2XkWas8XtoXqsN.e';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (rejectCrossOriginMutation(req, res)) return;
 
   const { phone, password } = req.body || {};
   if (!phone || !password) return res.status(400).json({ error: '请输入手机号和密码' });

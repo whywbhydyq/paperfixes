@@ -6,6 +6,7 @@ import {
   calculateExtendedExpiry,
   expireAllDuePlans,
 } from '../_lib/plan-entitlements.js';
+import { rejectCrossOriginMutation } from '../_lib/http-security.js';
 
 interface PlanConfig {
   planKey: string;
@@ -99,6 +100,7 @@ async function ensureDefaultConfig() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET' && rejectCrossOriginMutation(req, res)) return;
   const { resource } = req.query;
 
   // ===== /api/admin?resource=config =====
