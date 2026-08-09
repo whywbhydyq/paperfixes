@@ -19,6 +19,7 @@ model User {
   plan          String   @default("free")
   quota         Int      @default(5)
   totalUsed     Int      @default(0)
+  planExpiresAt DateTime?
   createdAt     DateTime @default(now())
   jobs          Job[]
   topups        Topup[]
@@ -64,22 +65,26 @@ model SmsCode {
   phone     String
   code      String
   used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  requestIp String?
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([phone, expiresAt])
+  @@index([requestIp, createdAt])
 }
 
 model Order {
-  id        String    @id
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  planKey   String
-  amount    Float
-  quota     Int
-  status    String    @default("PENDING")
-  paidAt    DateTime?
-  createdAt DateTime  @default(now())
+  id              String    @id
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  planKey         String
+  amount          Float
+  quota           Int
+  status          String    @default("PENDING")
+  providerTradeNo String?   @unique
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
 
   @@index([userId])
 }
