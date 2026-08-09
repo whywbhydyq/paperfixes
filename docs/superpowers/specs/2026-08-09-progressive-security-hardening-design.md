@@ -167,6 +167,8 @@ Bearer 只作为渐进迁移兼容路径；新前端不再发送或保存 Token�
 
 登录成功接口使用 `Set-Cookie`，不再要求前端把 JWT 写入 Zustand。新增 `/api/auth/logout` 清除 Cookie。
 
+手机号密码登录对“手机号不存在”“尚未设置密码”和“密码错误”统一返回同一认证失败信息，避免在认证前泄露账号是否存在。
+
 ### 7.3 前端状态
 
 - 从 Zustand 持久化内容中删除 `token`、`inputText` 和 `planActivatedAt`。
@@ -255,8 +257,9 @@ finalizePaidOrder(input: {
 1. 条件更新订单 `PENDING -> PAID` 并保存 `providerTradeNo/paidAt`。
 2. 读取用户当前 `planExpiresAt`。
 3. 计算叠加 30 天后的新到期时间。
-4. 增加订单额度、设置新套餐和 `planExpiresAt`。
-5. 创建 Topup 记录。
+4. 如果旧付费套餐在付款时已经过期，先按到期规则丢弃其陈旧剩余额度，再把额度设置为本次订单额度；否则在当前有效额度上增加订单额度。
+5. 设置新套餐和 `planExpiresAt`。
+6. 创建 Topup 记录。
 
 任何一步失败则全部回滚。重复回调因第一步条件更新不再命中而返回 `already_paid`，不重复增加额度。
 
