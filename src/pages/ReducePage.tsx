@@ -1,11 +1,20 @@
-import { useState, useCallback, useEffect } from 'react';
-import JobPoller from '../components/JobPoller';
+import { lazy, Suspense, useState, useCallback, useEffect } from 'react';
 import { Send, RotateCcw, AlertCircle, FileUp, Info, Check, Copy, FileText, Sparkles, ArrowRight, Gift, Wand2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { submitRewriteJob } from '../lib/api';
 import { trackEvent } from '../lib/analytics';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
+const JobPoller = lazy(() => import('../components/JobPoller'));
+
+function ProcessingFallback() {
+  return (
+    <div className="flex min-h-[460px] flex-col items-center justify-center" role="status" aria-live="polite">
+      <div className="mb-4 h-12 w-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin" />
+      <p className="text-sm font-semibold text-gray-700">正在加载处理状态…</p>
+    </div>
+  );
+}
 
 async function fetchPlanMaxChars(plan: string): Promise<number> {
   try {
@@ -242,7 +251,9 @@ export default function ReducePage() {
 
             {phase === 'processing' && (
               <div className="min-h-[460px]">
-                <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
+                <Suspense fallback={<ProcessingFallback />}>
+                  <JobPoller jobId={jobId} onComplete={handleComplete} onError={handleError} />
+                </Suspense>
               </div>
             )}
 

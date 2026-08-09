@@ -4,7 +4,7 @@ import { initAnalytics, trackPageView } from './lib/analytics';
 import SEO from './components/SEO';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import LoginModal from './components/LoginModal';
+import { DeferredLoginModal } from './components/lazyLoginModal';
 import ReducePage from './pages/ReducePage';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -67,7 +67,7 @@ export default function App() {
           </Routes>
         </main>
         <Footer />
-        <LoginModal />
+        <DeferredLoginModal />
       </div>
     </BrowserRouter>
   );

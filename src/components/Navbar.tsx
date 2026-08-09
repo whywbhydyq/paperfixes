@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { FileText, Menu, X, User, LogOut, Zap, Shield } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { fetchQuota } from '../lib/api';
+import { preloadLoginModal } from './lazyLoginModal';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -11,6 +12,7 @@ export default function Navbar() {
   const { user, isLoggedIn, logout, openLoginModal, updateUserEntitlements } = useAuthStore();
 
   const isAdmin = isLoggedIn && user && user.role === 'admin';
+  const preloadLogin = () => { void preloadLoginModal(); };
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -103,8 +105,8 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button onClick={openLoginModal} className="rounded-xl px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">登录</button>
-              <button onClick={openLoginModal} className="rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary-200 transition-all hover:shadow-lg hover:shadow-primary-300 active:scale-[0.97]">领取 3 次免费体验</button>
+              <button onClick={openLoginModal} onPointerEnter={preloadLogin} onFocus={preloadLogin} onTouchStart={preloadLogin} className="rounded-xl px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">登录</button>
+              <button onClick={openLoginModal} onPointerEnter={preloadLogin} onFocus={preloadLogin} onTouchStart={preloadLogin} className="rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary-200 transition-all hover:shadow-lg hover:shadow-primary-300 active:scale-[0.97]">领取 3 次免费体验</button>
             </>
           )}
         </div>
@@ -129,7 +131,7 @@ export default function Navbar() {
                 <button onClick={() => { logout(); setMobileOpen(false); }} className="w-full rounded-lg px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">退出登录</button>
               </>
             ) : (
-              <button onClick={() => { openLoginModal(); setMobileOpen(false); }} className="w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white">登录并领取 3 次免费体验</button>
+              <button onClick={() => { openLoginModal(); setMobileOpen(false); }} onPointerEnter={preloadLogin} onFocus={preloadLogin} onTouchStart={preloadLogin} className="w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white">登录并领取 3 次免费体验</button>
             )}
           </div>
         </div>

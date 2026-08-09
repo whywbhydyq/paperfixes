@@ -50,4 +50,19 @@ describe('PaperFix initial entry boundary', () => {
       faqs: article.faqs,
     })));
   });
+
+  it('loads modal and poller only after user intent', () => {
+    const app = read('src/App.tsx');
+    const navbar = read('src/components/Navbar.tsx');
+    const reduce = read('src/pages/ReducePage.tsx');
+
+    expect(app).not.toMatch(/import LoginModal from/);
+    expect(app).toMatch(/DeferredLoginModal/);
+    expect(navbar).toMatch(/preloadLoginModal/);
+    expect(navbar).toMatch(/onPointerEnter/);
+    expect(navbar).toMatch(/onFocus/);
+    expect(navbar).toMatch(/onTouchStart/);
+    expect(reduce).not.toMatch(/import JobPoller from/);
+    expect(reduce).toMatch(/lazy\(\(\) => import\(['"]\.\.\/components\/JobPoller['"]\)\)/);
+  });
 });
