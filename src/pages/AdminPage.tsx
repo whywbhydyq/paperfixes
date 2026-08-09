@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { request } from '../lib/api';
 
-async function apiFetch(path: string, token: string | null, options: RequestInit = {}) {
-  return request(path, options, token);
+async function apiFetch<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
+  return request<T>(path, options, token);
 }
 
 interface PlanConfig {
@@ -47,7 +47,7 @@ export default function AdminPage() {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/api/admin?resource=users', token);
+      const data = await apiFetch<{ users: UserInfo[] }>('/api/admin?resource=users', token);
       setUsers(data.users);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -56,7 +56,7 @@ export default function AdminPage() {
   const loadPlans = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/api/admin?resource=config', token);
+      const data = await apiFetch<{ plans: PlanConfig[] }>('/api/admin?resource=config', token);
       setPlans(data.plans);
     } catch (e) { console.error(e); }
     setLoading(false);
