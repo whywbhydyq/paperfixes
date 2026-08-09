@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
+import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 
 async function getPlanLimits(plan: string): Promise<{ minChars: number; maxChars: number }> {
   try {
@@ -26,7 +27,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { text } = req.body || {};
   if (!text || typeof text !== 'string') return res.status(400).json({ error: '请输入需要改写的文本' });
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await enforcePlanExpiry(userId).catch((error: unknown) => {
+    if (error instanceof Error && error.message === 'USER_NOT_FOUND') return null;
+    throw error;
+  });
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
   const limits = await getPlanLimits(user.plan);

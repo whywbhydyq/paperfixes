@@ -2,6 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import { isAdminUser } from '../_lib/constants.js';
+import {
+  calculateExtendedExpiry,
+  expireAllDuePlans,
+} from '../_lib/plan-entitlements.js';
 
 interface PlanConfig {
   planKey: string;
@@ -127,11 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!auth.ok) return res.status(403).json({ error: '无权限' });
 
     if (req.method === 'GET') {
+      await expireAllDuePlans();
       const users = await prisma.user.findMany({
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, email: true, phone: true, wechatName: true,
-          role: true, plan: true, quota: true, totalUsed: true, createdAt: true,
+          role: true, plan: true, quota: true, totalUsed: true,
+          planExpiresAt: true, createdAt: true,
           jobs: {
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -152,12 +158,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { quota, plan, role } = req.body || {};
       const data: Record<string, unknown> = {};
       if (typeof quota === 'number') data.quota = quota;
-      if (typeof plan === 'string') data.plan = plan;
+      if (typeof plan === 'string') {
+        data.plan = plan;
+        if (plan === 'free') {
+          data.planExpiresAt = null;
+        } else {
+          const current = await prisma.user.findUnique({ where: { id: targetId } });
+          if (!current) return res.status(404).json({ error: '用户不存在' });
+          if (!current.planExpiresAt || current.planExpiresAt <= new Date()) {
+            data.planExpiresAt = calculateExtendedExpiry(new Date(), null);
+          }
+        }
+      }
       if (typeof role === 'string') data.role = role;
       const updated = await prisma.user.update({
         where: { id: targetId },
         data,
-        select: { id: true, email: true, phone: true, wechatName: true, role: true, plan: true, quota: true, totalUsed: true },
+        select: {
+          id: true, email: true, phone: true, wechatName: true,
+          role: true, plan: true, quota: true, totalUsed: true,
+          planExpiresAt: true,
+        },
       });
       return res.status(200).json({ user: updated });
     }

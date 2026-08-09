@@ -2,21 +2,28 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
+import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = getUserFromRequest(req);
   if (!userId) return res.status(401).json({ error: '请先登录' });
 
+  const currentUser = await enforcePlanExpiry(userId).catch((error: unknown) => {
+    if (error instanceof Error && error.message === 'USER_NOT_FOUND') return null;
+    throw error;
+  });
+  if (!currentUser) return res.status(404).json({ error: '用户不存在' });
+
   const { action } = req.query;
 
   // GET /api/user?action=quota
   if (req.method === 'GET' && action === 'quota') {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { quota: true, totalUsed: true },
+    return res.status(200).json({
+      quota: currentUser.quota,
+      totalUsed: currentUser.totalUsed,
+      plan: currentUser.plan,
+      planExpiresAt: currentUser.planExpiresAt?.toISOString() ?? null,
     });
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    return res.status(200).json({ quota: user.quota, totalUsed: user.totalUsed });
   }
 
   // GET /api/user?action=jobs
@@ -50,17 +57,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // POST /api/user?action=password
   if (req.method === 'POST' && action === 'password') {
-    const { getUserFromRequest: gufr, comparePassword, hashPassword } = 
-      await import('../_lib/auth.js');
+    const { comparePassword, hashPassword } = await import('../_lib/auth.js');
     const { oldPassword, newPassword } = req.body || {};
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ error: '新密码至少 6 位' });
     }
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    if (user.passwordHash) {
+    if (currentUser.passwordHash) {
       if (!oldPassword) return res.status(400).json({ error: '请输入当前密码' });
-      const valid = await comparePassword(oldPassword, user.passwordHash);
+      const valid = await comparePassword(oldPassword, currentUser.passwordHash);
       if (!valid) return res.status(400).json({ error: '当前密码不正确' });
     }
     const newHash = await hashPassword(newPassword);
