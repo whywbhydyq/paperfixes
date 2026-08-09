@@ -32,3 +32,4 @@ Thumbs.db
 .backups/
 *.bak
 project_dump.txt
+.worktrees/
