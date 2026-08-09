@@ -19,7 +19,7 @@ function isValidPhone(phone: unknown): phone is string {
 
 const verificationError = '验证码错误或已过期';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handleSmsRequest(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (rejectCrossOriginMutation(req, res)) return;
 
@@ -152,4 +152,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(400).json({ error: '无效操作' });
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await handleSmsRequest(req, res);
+  } catch (error: unknown) {
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : 'unknown';
+    console.error('[SMS] request infrastructure failure', { code });
+    if (res.headersSent) return;
+    return res.status(503).json({
+      success: false,
+      error: '验证码服务正在升级，请稍后再试',
+    });
+  }
 }
