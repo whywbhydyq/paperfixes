@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { FileText, Menu, X, User, LogOut, Zap, Shield } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { fetchQuota } from '../lib/api';
@@ -8,7 +7,7 @@ import { preloadLoginModal } from './lazyLoginModal';
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const location = useLocation();
+  const pathname = typeof window === 'undefined' ? '/' : window.location.pathname;
   const { user, isLoggedIn, logout, openLoginModal, updateUserEntitlements } = useAuthStore();
 
   const isAdmin = isLoggedIn && user && user.role === 'admin';
@@ -22,11 +21,6 @@ export default function Navbar() {
     }
   }, [isLoggedIn, updateUserEntitlements]);
 
-  useEffect(() => {
-    setMobileOpen(false);
-    setDropdownOpen(false);
-  }, [location.pathname]);
-
   const navLinks = [
     { to: '/', label: 'AI降重', matchExact: true },
     { to: '/examples', label: '改写示例' },
@@ -36,15 +30,15 @@ export default function Navbar() {
   ];
 
   const isActive = (link: typeof navLinks[0]) => {
-    if (link.matchExact) return location.pathname === '/';
+    if (link.matchExact) return pathname === '/';
     const linkPath = link.to.split('?')[0];
-    return location.pathname === linkPath || (linkPath === '/blog' && location.pathname.startsWith('/blog/'));
+    return pathname === linkPath || (linkPath === '/blog' && pathname.startsWith('/blog/'));
   };
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-        <Link to="/" className="flex items-center gap-2.5" aria-label="PaperFix 首页">
+        <a href="/" className="flex items-center gap-2.5" aria-label="PaperFix 首页">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-white shadow-md shadow-primary-200">
             <FileText size={18} strokeWidth={2.5} />
           </div>
@@ -52,19 +46,19 @@ export default function Navbar() {
             <div className="text-lg font-extrabold tracking-tight text-gray-900">PaperFix</div>
             <div className="text-[10px] font-medium text-gray-400">AI论文降重与学术改写</div>
           </div>
-        </Link>
+        </a>
 
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
-            <Link
+            <a
               key={link.to}
-              to={link.to}
+              href={link.to}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 isActive(link) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               {link.label}
-            </Link>
+            </a>
           ))}
         </div>
 
@@ -88,13 +82,13 @@ export default function Navbar() {
                         <div className="text-xs text-gray-400">已使用 {user?.totalUsed ?? 0} 次</div>
                       </div>
                       {isAdmin && (
-                        <Link to="/admin" onClick={() => setDropdownOpen(false)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50">
+                        <a href="/admin" onClick={() => setDropdownOpen(false)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50">
                           <Shield size={14} /> 管理控制台
-                        </Link>
+                        </a>
                       )}
-                      <Link to="/dashboard" onClick={() => setDropdownOpen(false)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                      <a href="/dashboard" onClick={() => setDropdownOpen(false)} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                         <User size={14} /> 个人中心
-                      </Link>
+                      </a>
                       <button onClick={() => { logout(); setDropdownOpen(false); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
                         <LogOut size={14} /> 退出登录
                       </button>
@@ -119,15 +113,15 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t bg-white px-6 py-4 md:hidden">
           {navLinks.map((link) => (
-            <Link key={link.to} to={link.to} className={`block rounded-lg px-4 py-2.5 text-sm font-medium ${isActive(link) ? 'bg-primary-50 text-primary-700' : 'text-gray-600'}`}>
+            <a key={link.to} href={link.to} className={`block rounded-lg px-4 py-2.5 text-sm font-medium ${isActive(link) ? 'bg-primary-50 text-primary-700' : 'text-gray-600'}`}>
               {link.label}
-            </Link>
+            </a>
           ))}
           <div className="mt-3 border-t pt-3">
             {isLoggedIn ? (
               <>
-                {isAdmin && <Link to="/admin" onClick={() => setMobileOpen(false)} className="block rounded-lg px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50">🛡️ 管理控制台</Link>}
-                <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block rounded-lg px-4 py-2.5 text-sm text-gray-700">个人中心</Link>
+                {isAdmin && <a href="/admin" onClick={() => setMobileOpen(false)} className="block rounded-lg px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50">🛡️ 管理控制台</a>}
+                <a href="/dashboard" onClick={() => setMobileOpen(false)} className="block rounded-lg px-4 py-2.5 text-sm text-gray-700">个人中心</a>
                 <button onClick={() => { logout(); setMobileOpen(false); }} className="w-full rounded-lg px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">退出登录</button>
               </>
             ) : (

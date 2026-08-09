@@ -1,5 +1,4 @@
 import { FileText, ShieldCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
@@ -20,20 +19,20 @@ export default function Footer() {
           <div>
             <h4 className="mb-3 text-sm font-semibold text-gray-900">产品</h4>
             <div className="space-y-2">
-              <Link to="/" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">开始改写</Link>
-              <Link to="/examples" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">改写示例</Link>
-              <Link to="/pricing" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">定价方案</Link>
-              <Link to="/dashboard" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">个人中心</Link>
+              <a href="/" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">开始改写</a>
+              <a href="/examples" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">改写示例</a>
+              <a href="/pricing" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">定价方案</a>
+              <a href="/dashboard" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">个人中心</a>
             </div>
           </div>
           <div>
             <h4 className="mb-3 text-sm font-semibold text-gray-900">内容</h4>
             <div className="space-y-2">
-              <Link to="/home" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">了解更多</Link>
-              <Link to="/blog" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">专题指南</Link>
-              <Link to="/faq" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">常见问题</Link>
-              <Link to="/privacy" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">隐私政策</Link>
-              <Link to="/terms" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">服务条款</Link>
+              <a href="/home" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">了解更多</a>
+              <a href="/blog" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">专题指南</a>
+              <a href="/faq" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">常见问题</a>
+              <a href="/privacy" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">隐私政策</a>
+              <a href="/terms" className="block text-sm text-gray-500 hover:text-primary-600 transition-colors">服务条款</a>
             </div>
           </div>
           <div>

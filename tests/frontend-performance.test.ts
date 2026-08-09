@@ -65,4 +65,28 @@ describe('PaperFix initial entry boundary', () => {
     expect(reduce).not.toMatch(/import JobPoller from/);
     expect(reduce).toMatch(/lazy\(\(\) => import\(['"]\.\.\/components\/JobPoller['"]\)\)/);
   });
+
+  it('exposes a build performance-budget command and Vite manifest', () => {
+    const pkg = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
+    const vite = read('vite.config.ts');
+
+    expect(pkg.scripts['perf:check']).toBe('node scripts/check-performance-budget.mjs');
+    expect(pkg.scripts.verify).toContain('npm run perf:check');
+    expect(vite).toMatch(/manifest:\s*true/);
+  });
+
+  it('boots the root editor without putting React Router in its static graph', () => {
+    const main = read('src/main.tsx');
+    const rootApp = read('src/RootApp.tsx');
+    const navbar = read('src/components/Navbar.tsx');
+    const footer = read('src/components/Footer.tsx');
+
+    expect(main).toMatch(/import RootApp from ['"]\.\/RootApp['"]/);
+    expect(main).not.toMatch(/import App from ['"]\.\/App['"]/);
+    expect(main).toMatch(/import\(['"]\.\/App['"]\)/);
+    expect(rootApp).toMatch(/import ReducePage from ['"]\.\/pages\/ReducePage['"]/);
+    expect(rootApp).not.toMatch(/react-router/);
+    expect(navbar).not.toMatch(/react-router/);
+    expect(footer).not.toMatch(/react-router/);
+  });
 });

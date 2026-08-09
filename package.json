@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "perf:check": "node scripts/check-performance-budget.mjs",
+    "verify": "npm test && npm run typecheck && npm run build && npm run perf:check",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
