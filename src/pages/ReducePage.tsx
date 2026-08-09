@@ -7,7 +7,7 @@ import { trackEvent } from '../lib/analytics';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-async function fetchPlanMaxChars(plan: string, token: string | null): Promise<number> {
+async function fetchPlanMaxChars(plan: string): Promise<number> {
   try {
     const res = await fetch(`${API_BASE}/api/admin?resource=config`);
     const data = await res.json();
@@ -29,7 +29,7 @@ const REVIEW_ITEMS = ['原意一致', '术语准确', '数据与引用未被改�
 const countChars = (s: string) => s.replace(/\s/g, '').length;
 
 export default function ReducePage() {
-  const { isLoggedIn, user, token, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob, inputText: savedText, saveInputText, clearInputText } = useAuthStore();
+  const { isLoggedIn, user, openLoginModal, updateQuota, activeJob, setActiveJob, clearActiveJob, inputText: savedText, saveInputText, clearInputText } = useAuthStore();
   const [text, setText] = useState(savedText || '');
   const [phase, setPhase] = useState<Phase>('input');
   const [jobId, setJobId] = useState('');
@@ -41,8 +41,8 @@ export default function ReducePage() {
   const [MAX_CHARS, setMaxChars] = useState(500);
 
   useEffect(() => {
-    fetchPlanMaxChars(user?.plan ?? 'free', token).then(setMaxChars);
-  }, [user?.plan, token]);
+    fetchPlanMaxChars(user?.plan ?? 'free').then(setMaxChars);
+  }, [user?.plan]);
 
   useEffect(() => {
     if (activeJob) {
@@ -99,7 +99,7 @@ export default function ReducePage() {
     trackEvent((user?.totalUsed ?? 0) === 0 ? 'first_submit' : 'rewrite_submit', { char_count: charCount, plan: user?.plan || 'unknown', quota_before: user?.quota ?? 0 });
     setSubmitting(true);
     try {
-      const data = await submitRewriteJob(text.trim(), token);
+      const data = await submitRewriteJob(text.trim());
       setJobId(data.jobId);
       setPhase('processing');
       setActiveJob({ jobId: data.jobId, phase: 'processing' });

@@ -23,7 +23,7 @@ interface PlanConfig {
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function PricingPage() {
-  const { isLoggedIn, openLoginModal, token, updateQuota } = useAuthStore();
+  const { isLoggedIn, openLoginModal, updateUserEntitlements } = useAuthStore();
   const [searchParams] = useSearchParams();
   
   const [plans, setPlans] = useState<PlanConfig[]>([]);
@@ -53,14 +53,14 @@ export default function PricingPage() {
 
   // 处理从码支付返回的页面
   useEffect(() => {
-    if (searchParams.get('from_pay') === '1' && token) {
+    if (searchParams.get('from_pay') === '1' && isLoggedIn) {
       const order = searchParams.get('order');
       trackEvent('payment_return', { has_order: !!order });
       if (order) {
         setPendingOrderId(order);
         console.log('[支付回跳] 开始轮询订单:', order);
       }
-      fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});
+      fetchQuota().then((data) => updateUserEntitlements(data)).catch(() => {});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
@@ -69,7 +69,7 @@ export default function PricingPage() {
 
   // 自动轮询支付状态
   useEffect(() => {
-    if (pendingOrderId && !paySuccess && token) {
+    if (pendingOrderId && !paySuccess && isLoggedIn) {
       // 立即查一次
       checkPayment(true);
       
@@ -97,7 +97,7 @@ export default function PricingPage() {
         pollTimerRef.current = null;
       }
     };
-  }, [pendingOrderId, paySuccess, token]);
+  }, [pendingOrderId, paySuccess, isLoggedIn]);
 
   const handlePlanClick = (plan: PlanConfig) => {
     trackEvent('pricing_click', {
@@ -139,7 +139,7 @@ export default function PricingPage() {
     });
     setPayLoading(loadingKey);
     try {
-      const data = await createPaymentOrder(selectedPlan.planKey, payType, token);
+      const data = await createPaymentOrder(selectedPlan.planKey, payType);
       if (data.submitUrl && data.params && data.orderId) {
         trackEvent('payment_create', {
           plan_key: selectedPlan.planKey,
@@ -178,10 +178,10 @@ export default function PricingPage() {
   };
 
   const checkPayment = async (silent: boolean = false) => {
-    if (!pendingOrderId || !token) return;
+    if (!pendingOrderId || !isLoggedIn) return;
     if (!silent) trackEvent('payment_manual_check', { order_id: pendingOrderId });
     try {
-      const data = await pollPaymentStatus(pendingOrderId, token);
+      const data = await pollPaymentStatus(pendingOrderId);
       if (data.status === 'PAID') {
         trackEvent('payment_paid', { order_id: pendingOrderId });
         // 清除定时器
@@ -193,9 +193,8 @@ export default function PricingPage() {
         setPaySuccess(true);
         setPendingOrderId(null);
         
-        // 修复：正确调用 useAuthStore 的 updateQuota 和 api 的 fetchQuota
-        const quotaData = await fetchQuota(token);
-        updateQuota(quotaData.quota, quotaData.totalUsed);
+        const quotaData = await fetchQuota();
+        updateUserEntitlements(quotaData);
         trackEvent('payment_quota_refreshed', { quota: quotaData.quota, total_used: quotaData.totalUsed });
       } else {
         if (!silent) {

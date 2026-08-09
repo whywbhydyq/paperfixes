@@ -10,7 +10,7 @@ import { fetchQuota, fetchTopups, fetchJobs, changePassword, type TopupRecord, t
 type ActiveTab = 'history' | 'topups' | 'password';
 
 export default function DashboardPage() {
-  const { user, token, isLoggedIn, logout, openLoginModal, updateQuota } = useAuthStore();
+  const { user, isLoggedIn, logout, openLoginModal, updateUserEntitlements } = useAuthStore();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
@@ -41,30 +41,30 @@ export default function DashboardPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!isLoggedIn || !token) return;
-    fetchQuota(token).then((data) => updateQuota(data.quota, data.totalUsed)).catch(() => {});
+    if (!isLoggedIn) return;
+    fetchQuota().then((data) => updateUserEntitlements(data)).catch(() => {});
     loadJobs();
-  }, [isLoggedIn, token]);
+  }, [isLoggedIn, updateUserEntitlements]);
 
   useEffect(() => {
-    if (activeTab === 'topups' && token) loadTopups();
-  }, [activeTab, token]);
+    if (activeTab === 'topups' && isLoggedIn) loadTopups();
+  }, [activeTab, isLoggedIn]);
 
   const loadJobs = async () => {
-    if (!token) return;
+    if (!isLoggedIn) return;
     setJobsLoading(true);
     try {
-      const data = await fetchJobs(token);
+      const data = await fetchJobs();
       setJobs(data.jobs || []);
     } catch {}
     setJobsLoading(false);
   };
 
   const loadTopups = async () => {
-    if (!token) return;
+    if (!isLoggedIn) return;
     setTopupsLoading(true);
     try {
-      const data = await fetchTopups(token);
+      const data = await fetchTopups();
       setTopups(data.topups || []);
     } catch {}
     setTopupsLoading(false);
@@ -85,7 +85,7 @@ export default function DashboardPage() {
     if (newPassword !== confirmPassword) { setPwdError('两次密码不一致'); return; }
     setPwdLoading(true);
     try {
-      await changePassword(oldPassword, newPassword, token);
+      await changePassword(oldPassword, newPassword);
       setPwdMsg('密码修改成功');
       setOldPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (err: unknown) {

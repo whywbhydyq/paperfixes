@@ -22,7 +22,6 @@ export default function LoginModal() {
   const [countdown, setCountdown] = useState(0);
   const [devCode, setDevCode] = useState('');
   const [needSetPwd, setNeedSetPwd] = useState(false);
-  const [tempToken, setTempToken] = useState<string | null>(null);
   const [tempUser, setTempUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -36,7 +35,7 @@ export default function LoginModal() {
     if (showLoginModal) {
       setTab('sms'); setPhone(''); setCode(''); setPassword('');
       setNewPwd(''); setConfirmPwd(''); setError('');
-      setNeedSetPwd(false); setTempToken(null); setTempUser(null);
+      setNeedSetPwd(false); setTempUser(null);
       setDevCode(''); setCountdown(0);
     }
   }, [showLoginModal]);
@@ -71,12 +70,11 @@ export default function LoginModal() {
       trackEvent('sms_verify_success', { needs_password: !!data.needsPassword });
       if (data.needsPassword) {
         trackEvent('password_setup_required', { plan: data.user.plan, quota: data.user.quota });
-        setTempToken(data.token);
         setTempUser(data.user);
         setNeedSetPwd(true);
       } else {
         trackEvent('login_success', { method: 'sms', plan: data.user.plan, quota: data.user.quota });
-        login(data.user, data.token);
+        login(data.user);
         closeLoginModal();
       }
     } catch (err: unknown) {
@@ -95,7 +93,7 @@ export default function LoginModal() {
     try {
       const data = await phonePasswordLogin(phone, password);
       trackEvent('login_success', { method: 'password', plan: data.user.plan, quota: data.user.quota });
-      login(data.user, data.token);
+      login(data.user);
       closeLoginModal();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '登录失败';
@@ -108,14 +106,14 @@ export default function LoginModal() {
     setError('');
     if (newPwd.length < 6) { setError('密码至少6位'); return; }
     if (newPwd !== confirmPwd) { setError('两次密码不一致'); return; }
-    if (!tempUser || !tempToken) { setError('登录状态异常，请重新获取验证码'); return; }
+    if (!tempUser) { setError('登录状态异常，请重新获取验证码'); return; }
     trackEvent('password_setup_attempt');
     setLoginLoading(true);
     try {
-      await setUserPassword(newPwd, tempToken);
+      await setUserPassword(newPwd);
       trackEvent('register_success', { method: 'sms', plan: tempUser.plan, quota: tempUser.quota });
       trackEvent('login_success', { method: 'sms_password_setup', plan: tempUser.plan, quota: tempUser.quota });
-      login({ ...tempUser, hasPassword: true }, tempToken);
+      login({ ...tempUser, hasPassword: true });
       closeLoginModal();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '设置失败';

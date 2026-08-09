@@ -1,32 +1,25 @@
 /**
- * API 客户端 - 所有后端通信都经过这里
- * 后端是 Next.js + QStash 轮询架构，前端只负责：
- * 1. 提交任务 → 获取 jobId
- * 2. 每 2 秒轮询状态
- * 3. 获取结果
+ * 浏览器 API 客户端。会话只通过同源 HttpOnly Cookie 发送。
  */
 
 import type { User } from '../store/useAuthStore';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-export async function request<T>(
-  path: string,
-  options: RequestInit = {},
-  token?: string | null
-): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: 'same-origin',
+    headers,
+  });
   if (res.status === 401) {
     const { useAuthStore } = await import('../store/useAuthStore');
     const store = useAuthStore.getState();
-    store.logout();
+    store.clearSession();
     store.openLoginModal();
     throw new Error('登录已过期，请重新登录');
   }
@@ -45,7 +38,7 @@ export async function sendSmsCode(phone: string) {
 }
 
 export async function verifySmsCode(phone: string, code: string) {
-  return request<{ user: User; token: string; needsPassword?: boolean }>(
+  return request<{ user: User; needsPassword?: boolean }>(
     '/api/auth/sms',
     { method: 'POST', body: JSON.stringify({ action: 'verify', phone, code }) }
   );
@@ -56,14 +49,11 @@ export interface SubmitResponse {
   quota: number;
 }
 
-export async function submitRewriteJob(
-  text: string,
-  token: string | null
-): Promise<SubmitResponse> {
+export async function submitRewriteJob(text: string): Promise<SubmitResponse> {
   return request<SubmitResponse>('/api/rewrite/submit', {
     method: 'POST',
     body: JSON.stringify({ text }),
-  }, token);
+  });
 }
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
@@ -77,20 +67,19 @@ export interface JobStatusResponse {
   doneAt?: string;
 }
 
-export async function pollJobStatus(
-  jobId: string,
-  token: string | null
-): Promise<JobStatusResponse> {
-  return request<JobStatusResponse>(`/api/rewrite/status/${jobId}`, {}, token);
+export async function pollJobStatus(jobId: string): Promise<JobStatusResponse> {
+  return request<JobStatusResponse>(`/api/rewrite/status/${jobId}`);
 }
 
 export interface QuotaResponse {
   quota: number;
   totalUsed: number;
+  plan: string;
+  planExpiresAt: string | null;
 }
 
-export async function fetchQuota(token: string | null): Promise<QuotaResponse> {
-  return request<QuotaResponse>('/api/user?action=quota', {}, token);
+export async function fetchQuota(): Promise<QuotaResponse> {
+  return request<QuotaResponse>('/api/user?action=quota');
 }
 
 export interface TopupRecord {
@@ -103,24 +92,22 @@ export interface TopupRecord {
 }
 
 export async function phonePasswordLogin(phone: string, password: string) {
-  return request<{ user: User; token: string }>('/api/auth/phone-login', {
+  return request<{ user: User }>('/api/auth/phone-login', {
     method: 'POST',
     body: JSON.stringify({ phone, password }),
   });
 }
 
-export async function setUserPassword(password: string, token: string | null) {
+export async function setUserPassword(password: string) {
   return request<{ success: boolean }>('/api/auth/set-password', {
     method: 'POST',
     body: JSON.stringify({ password }),
-  }, token);
+  });
 }
 
-export async function fetchTopups(token: string | null): Promise<{ topups: TopupRecord[] }> {
-  return request<{ topups: TopupRecord[] }>('/api/user?action=topups', {}, token);
+export async function fetchTopups(): Promise<{ topups: TopupRecord[] }> {
+  return request<{ topups: TopupRecord[] }>('/api/user?action=topups');
 }
-
-// ==================== 支付相关 API ====================
 
 export interface JobRecord {
   id: string;
@@ -133,19 +120,18 @@ export interface JobRecord {
   doneAt: string | null;
 }
 
-export async function fetchJobs(token: string | null): Promise<{ jobs: JobRecord[] }> {
-  return request<{ jobs: JobRecord[] }>('/api/user?action=jobs', {}, token);
+export async function fetchJobs(): Promise<{ jobs: JobRecord[] }> {
+  return request<{ jobs: JobRecord[] }>('/api/user?action=jobs');
 }
 
 export async function changePassword(
   oldPassword: string,
-  newPassword: string,
-  token: string | null
+  newPassword: string
 ): Promise<{ success: boolean }> {
   return request<{ success: boolean }>('/api/user?action=password', {
     method: 'POST',
     body: JSON.stringify({ oldPassword, newPassword }),
-  }, token);
+  });
 }
 
 export interface CreatePaymentResponse {
@@ -157,22 +143,18 @@ export interface CreatePaymentResponse {
 
 export async function createPaymentOrder(
   planKey: string,
-  payType: 'alipay' | 'wxpay',
-  token: string | null
+  payType: 'alipay' | 'wxpay'
 ): Promise<CreatePaymentResponse> {
   return request<CreatePaymentResponse>('/api/payment/create', {
     method: 'POST',
     body: JSON.stringify({ planKey, payType }),
-  }, token);
+  });
 }
 
 export interface PaymentStatusResponse {
   status: string;
 }
 
-export async function pollPaymentStatus(
-  orderId: string,
-  token: string | null
-): Promise<PaymentStatusResponse> {
-  return request<PaymentStatusResponse>(`/api/payment/status?orderId=${orderId}&_t=${Date.now()}`, {}, token);
+export async function pollPaymentStatus(orderId: string): Promise<PaymentStatusResponse> {
+  return request<PaymentStatusResponse>(`/api/payment/status?orderId=${orderId}&_t=${Date.now()}`);
 }

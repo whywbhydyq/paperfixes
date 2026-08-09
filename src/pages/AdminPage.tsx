@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { request } from '../lib/api';
 
-async function apiFetch<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
-  return request<T>(path, options, token);
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  return request<T>(path, options);
 }
 
 interface PlanConfig {
@@ -24,7 +24,7 @@ interface UserInfo {
 }
 
 export default function AdminPage() {
-  const { user, token, isLoggedIn, openLoginModal } = useAuthStore();
+  const { user, isLoggedIn, openLoginModal } = useAuthStore();
   const navigate = useNavigate();
   const [tab, setTab] = useState<'users' | 'pricing'>('users');
   const [users, setUsers] = useState<UserInfo[]>([]);
@@ -47,20 +47,20 @@ export default function AdminPage() {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ users: UserInfo[] }>('/api/admin?resource=users', token);
+      const data = await apiFetch<{ users: UserInfo[] }>('/api/admin?resource=users');
       setUsers(data.users);
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ plans: PlanConfig[] }>('/api/admin?resource=config', token);
+      const data = await apiFetch<{ plans: PlanConfig[] }>('/api/admin?resource=config');
       setPlans(data.plans);
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) { openLoginModal(); return; }
@@ -97,7 +97,7 @@ export default function AdminPage() {
 
   const handleSaveUser = async (userId: string) => {
     try {
-      await apiFetch(`/api/admin?resource=users&id=${userId}`, token, {
+      await apiFetch(`/api/admin?resource=users&id=${userId}`, {
         method: 'PUT', body: JSON.stringify(editData),
       });
       setEditingUserId(null);
@@ -113,7 +113,7 @@ export default function AdminPage() {
     if (!topupUserId || topupAmount <= 0) return;
     setTopupLoading(true);
     try {
-      await apiFetch('/api/admin?resource=topup', token, {
+      await apiFetch('/api/admin?resource=topup', {
         method: 'POST',
         body: JSON.stringify({
           userId: topupUserId,
@@ -138,7 +138,7 @@ export default function AdminPage() {
 
   const handleSavePlans = async () => {
     try {
-      await apiFetch('/api/admin?resource=config', token, {
+      await apiFetch('/api/admin?resource=config', {
         method: 'PUT', body: JSON.stringify({ plans }),
       });
       setSaveMsg('定价配置已保存');

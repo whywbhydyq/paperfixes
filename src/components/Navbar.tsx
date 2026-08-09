@@ -8,17 +8,17 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const location = useLocation();
-  const { user, token, isLoggedIn, logout, openLoginModal, updateQuota } = useAuthStore();
+  const { user, isLoggedIn, logout, openLoginModal, updateUserEntitlements } = useAuthStore();
 
   const isAdmin = isLoggedIn && user && user.role === 'admin';
 
   useEffect(() => {
-    if (isLoggedIn && token) {
-      fetchQuota(token).then((data) => {
-        updateQuota(data.quota, data.totalUsed);
+    if (isLoggedIn) {
+      fetchQuota().then((data) => {
+        updateUserEntitlements(data);
       }).catch(() => {});
     }
-  }, [isLoggedIn, token, updateQuota]);
+  }, [isLoggedIn, updateUserEntitlements]);
 
   useEffect(() => {
     setMobileOpen(false);

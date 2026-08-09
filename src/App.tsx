@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
-import { useAuthStore } from './store/useAuthStore';
 import { initAnalytics, trackPageView } from './lib/analytics';
 import SEO from './components/SEO';
 import Navbar from './components/Navbar';
@@ -29,11 +28,9 @@ function ScrollToTop() {
 }
 
 export default function App() {
-  const { checkPlanExpiry } = useAuthStore();
   useEffect(() => {
     initAnalytics();
-    checkPlanExpiry();
-  }, [checkPlanExpiry]);
+  }, []);
   return (
     <BrowserRouter>
       <SEO />

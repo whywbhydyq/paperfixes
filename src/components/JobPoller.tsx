@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Loader2, Clock } from 'lucide-react';
 import { pollJobStatus, type JobStatus as JobStatusType, type JobStatusResponse } from '../lib/api';
-import { useAuthStore } from '../store/useAuthStore';
 
 const MAX_POLL_SECONDS = 300; // 5 minutes max
 
@@ -12,7 +11,6 @@ interface JobPollerProps {
 }
 
 export default function JobPoller({ jobId, onComplete, onError }: JobPollerProps) {
-  const { token } = useAuthStore();
   const [status, setStatus] = useState<JobStatusType>('PENDING');
   const [elapsed, setElapsed] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -36,7 +34,7 @@ export default function JobPoller({ jobId, onComplete, onError }: JobPollerProps
     // Start polling every 2 seconds
     pollRef.current = setInterval(async () => {
       try {
-        const data: JobStatusResponse = await pollJobStatus(jobId, token);
+        const data: JobStatusResponse = await pollJobStatus(jobId);
         setStatus(data.status);
 
         if (data.status === 'DONE' && data.result) {
@@ -73,7 +71,7 @@ export default function JobPoller({ jobId, onComplete, onError }: JobPollerProps
         timerRef.current = null;
       }
     };
-  }, [jobId, token]);
+  }, [jobId]);
 
   // Timeout detection - separate effect to avoid interfering with poll effect
   useEffect(() => {
