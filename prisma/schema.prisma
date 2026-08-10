@@ -24,6 +24,7 @@ model User {
   jobs          Job[]
   topups        Topup[]
   orders        Order[]
+  redeemedCodes RedemptionCode[]
 }
 
 model Job {
@@ -87,4 +88,25 @@ model Order {
   createdAt       DateTime  @default(now())
 
   @@index([userId])
+}
+
+model RedemptionCode {
+  id           String    @id @default(uuid())
+  codeHash     String    @unique
+  codeHint     String
+  planKey      String
+  quota        Int
+  price        Float     @default(0)
+  source       String    @default("manual")
+  batchId      String?
+  note         String?
+  redeemedById String?
+  redeemedBy   User?     @relation(fields: [redeemedById], references: [id], onDelete: SetNull)
+  redeemedAt   DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([batchId])
+  @@index([redeemedById, redeemedAt])
+  @@index([source, createdAt])
 }

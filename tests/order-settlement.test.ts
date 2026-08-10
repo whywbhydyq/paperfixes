@@ -99,8 +99,10 @@ it('clears stale expired quota before applying a new purchase', async () => {
 
 it('keeps the atomic settlement service ready for a future verified provider', () => {
   const settlement = readFileSync('api/_lib/order-settlement.ts', 'utf8');
+  const planCredit = readFileSync('api/_lib/plan-credit.ts', 'utf8');
   expect(settlement).toContain('client.$transaction');
   expect(settlement).toContain('order.updateMany');
-  expect(settlement).toContain('topup.create');
-  expect(settlement).toContain('user.update');
+  expect(settlement).toContain('applyPlanCredit(tx');
+  expect(planCredit).toContain('topup.create');
+  expect(planCredit).toContain('user.update');
 });

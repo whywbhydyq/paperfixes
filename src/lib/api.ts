@@ -126,6 +126,28 @@ export async function fetchTopups(): Promise<{ topups: TopupRecord[] }> {
   return request<{ topups: TopupRecord[] }>('/api/user?action=topups');
 }
 
+export interface RedeemPlanCodeResponse {
+  success: true;
+  status: 'redeemed' | 'already_redeemed';
+  redemption: {
+    planKey: string;
+    quota: number;
+    source: string;
+  };
+  entitlements: {
+    plan: string;
+    quota: number;
+    planExpiresAt: string | null;
+  };
+}
+
+export async function redeemPlanCodeRequest(code: string): Promise<RedeemPlanCodeResponse> {
+  return request<RedeemPlanCodeResponse>('/api/user?action=redeem', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
 export interface JobRecord {
   id: string;
   inputText: string;

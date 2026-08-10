@@ -4,6 +4,7 @@ import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 import { rejectCrossOriginMutation } from '../_lib/http-security.js';
+import { redeemPlanCode } from '../_lib/redemption-code.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && rejectCrossOriginMutation(req, res)) return;
@@ -55,6 +56,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
     return res.status(200).json({ topups });
+  }
+
+  // POST /api/user?action=redeem
+  if (req.method === 'POST' && action === 'redeem') {
+    const { code } = req.body || {};
+    if (typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({ success: false, error: '请输入兑换码' });
+    }
+
+    try {
+      const result = await redeemPlanCode({ userId, code });
+      return res.status(200).json({
+        success: true,
+        status: result.status,
+        redemption: result.redemption,
+        entitlements: {
+          plan: result.user.plan,
+          quota: result.user.quota,
+          planExpiresAt: result.user.planExpiresAt?.toISOString() ?? null,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'REDEMPTION_CODE_INVALID') {
+        return res.status(400).json({ success: false, error: '兑换码格式错误或不存在' });
+      }
+      if (message === 'REDEMPTION_CODE_USED') {
+        return res.status(409).json({ success: false, error: '兑换码已被其他账号使用' });
+      }
+      if (message === 'REDEMPTION_CODE_EXPIRED') {
+        return res.status(410).json({ success: false, error: '兑换码已过期' });
+      }
+      throw error;
+    }
   }
 
   // POST /api/user?action=password

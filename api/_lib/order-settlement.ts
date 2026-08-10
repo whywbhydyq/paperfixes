@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import prisma from './prisma.js';
-import { calculateExtendedExpiry } from './plan-entitlements.js';
+import { applyPlanCredit } from './plan-credit.js';
 
 type SettlementTx = Pick<Prisma.TransactionClient, 'order' | 'user' | 'topup'>;
 
@@ -65,28 +65,13 @@ export async function finalizePaidOrder(
       throw new Error('PAYMENT_SETTLEMENT_CONFLICT');
     }
 
-    const user = await tx.user.findUnique({ where: { id: order.userId } });
-    if (!user) throw new Error('USER_NOT_FOUND');
-    const planExpiresAt = calculateExtendedExpiry(paidAt, user.planExpiresAt);
-    const expiredPaidPlan = user.plan !== 'free'
-      && user.planExpiresAt !== null
-      && user.planExpiresAt <= paidAt;
-    await tx.user.update({
-      where: { id: user.id },
-      data: {
-        quota: expiredPaidPlan ? order.quota : { increment: order.quota },
-        plan: order.planKey,
-        planExpiresAt,
-      },
-    });
-    await tx.topup.create({
-      data: {
-        userId: user.id,
-        amount: order.quota,
-        price: order.amount,
-        planKey: order.planKey,
-        note: `在线支付 ${providerTradeNo}`,
-      },
+    await applyPlanCredit(tx, {
+      userId: order.userId,
+      planKey: order.planKey,
+      quota: order.quota,
+      price: order.amount,
+      note: `在线支付 ${providerTradeNo}`,
+      effectiveAt: paidAt,
     });
     return 'credited';
   });

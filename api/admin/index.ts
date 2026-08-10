@@ -7,6 +7,7 @@ import {
   expireAllDuePlans,
 } from '../_lib/plan-entitlements.js';
 import { rejectCrossOriginMutation } from '../_lib/http-security.js';
+import { createRedemptionCodes } from '../_lib/redemption-code.js';
 
 interface PlanConfig {
   planKey: string;
@@ -226,6 +227,82 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     return res.status(200).json(result);
+  }
+
+  // ===== /api/admin?resource=redemption-codes =====
+  if (resource === 'redemption-codes') {
+    const auth = await checkAdmin(req);
+    if (!auth.ok) return res.status(403).json({ error: '无权限' });
+
+    if (req.method === 'GET') {
+      const codes = await prisma.redemptionCode.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          codeHint: true,
+          planKey: true,
+          quota: true,
+          price: true,
+          source: true,
+          batchId: true,
+          note: true,
+          redeemedById: true,
+          redeemedAt: true,
+          expiresAt: true,
+          createdAt: true,
+        },
+      });
+      return res.status(200).json({ codes });
+    }
+
+    if (req.method === 'POST') {
+      const { planKey, quantity, source, note, expiresAt: rawExpiresAt } = req.body || {};
+      const plans = await ensureDefaultConfig();
+      const plan = plans.find((candidate) =>
+        candidate.planKey === planKey && candidate.active && candidate.planKey !== 'free'
+      );
+      if (!plan) return res.status(400).json({ error: '套餐不存在或已停用' });
+
+      let expiresAt: Date | null = null;
+      if (rawExpiresAt !== undefined && rawExpiresAt !== null && rawExpiresAt !== '') {
+        expiresAt = new Date(rawExpiresAt);
+        if (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date()) {
+          return res.status(400).json({ error: '兑换码过期时间无效' });
+        }
+      }
+
+      try {
+        const result = await createRedemptionCodes({
+          planKey: plan.planKey,
+          quota: plan.quota,
+          price: plan.price,
+          quantity,
+          source,
+          note,
+          expiresAt,
+        });
+        return res.status(201).json({
+          ...result,
+          quantity: result.codes.length,
+          plan: {
+            planKey: plan.planKey,
+            name: plan.name,
+            quota: plan.quota,
+            price: plan.price,
+          },
+          warning: '明文兑换码只显示本次，请立即保存并安全导入发码平台。',
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message.startsWith('REDEMPTION_')) {
+          return res.status(400).json({ error: '兑换码批次参数无效' });
+        }
+        throw error;
+      }
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   return res.status(400).json({ error: '缺少 resource 参数' });

@@ -1,13 +1,16 @@
 import {  useEffect, useState , useRef } from 'react';
 import {
   User, Zap, FileText, Clock, LogOut, ArrowRight,
-  ChevronDown, ChevronUp, Copy, Check, Receipt, Key, Eye, EyeOff, Loader2,
+  ChevronDown, ChevronUp, Copy, Check, Receipt, Key, Eye, EyeOff, Loader2, Gift,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { fetchQuota, fetchTopups, fetchJobs, changePassword, type TopupRecord, type JobRecord } from '../lib/api';
+import {
+  fetchQuota, fetchTopups, fetchJobs, changePassword, redeemPlanCodeRequest,
+  type TopupRecord, type JobRecord,
+} from '../lib/api';
 
-type ActiveTab = 'history' | 'topups' | 'password';
+type ActiveTab = 'history' | 'topups' | 'redeem' | 'password';
 
 export default function DashboardPage() {
   const { user, isLoggedIn, logout, openLoginModal, updateUserEntitlements } = useAuthStore();
@@ -20,6 +23,12 @@ export default function DashboardPage() {
   // 充值记录
   const [topups, setTopups] = useState<TopupRecord[]>([]);
   const [topupsLoading, setTopupsLoading] = useState(false);
+
+  // 套餐兑换码
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemMsg, setRedeemMsg] = useState('');
+  const [redeemError, setRedeemError] = useState('');
 
   // 修改密码
   const [oldPassword, setOldPassword] = useState('');
@@ -35,7 +44,11 @@ export default function DashboardPage() {
   const tabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (searchParams.get('tab') && tabRef.current) {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab && ['history', 'topups', 'redeem', 'password'].includes(requestedTab)) {
+      setActiveTab(requestedTab as ActiveTab);
+    }
+    if (requestedTab && tabRef.current) {
       tabRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [searchParams]);
@@ -92,6 +105,30 @@ export default function DashboardPage() {
       setPwdError(err instanceof Error ? err.message : '修改失败');
     } finally {
       setPwdLoading(false);
+    }
+  };
+
+  const handleRedeem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = redeemCode.trim();
+    if (!code) return;
+    setRedeemLoading(true);
+    setRedeemMsg('');
+    setRedeemError('');
+    try {
+      const data = await redeemPlanCodeRequest(redeemCode);
+      updateUserEntitlements({
+        ...data.entitlements,
+        totalUsed: user?.totalUsed ?? 0,
+      });
+      setRedeemMsg(data.status === 'already_redeemed'
+        ? '这个兑换码已兑换过，当前套餐信息已刷新。'
+        : `兑换成功，已增加 ${data.redemption.quota} 次额度。`);
+      setRedeemCode('');
+    } catch (error) {
+      setRedeemError(error instanceof Error ? error.message : '兑换失败，请稍后重试');
+    } finally {
+      setRedeemLoading(false);
     }
   };
 
@@ -192,16 +229,17 @@ export default function DashboardPage() {
 
         {/* Tab 切换 */}
         <div className="mt-10" ref={tabRef}>
-          <div className="flex gap-2 border-b border-gray-200">
+          <div className="flex gap-2 overflow-x-auto border-b border-gray-200">
             {([
               { key: 'history', label: '改写历史', icon: <Clock size={14} /> },
               { key: 'topups', label: '充值记录', icon: <Receipt size={14} /> },
+              { key: 'redeem', label: '套餐兑换码', icon: <Gift size={14} /> },
               { key: 'password', label: '修改密码', icon: <Key size={14} /> },
             ] as const).map(({ key, label, icon }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === key
                     ? 'border-primary-600 text-primary-700'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -340,6 +378,53 @@ export default function DashboardPage() {
                   </table></div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 套餐兑换码 */}
+          {activeTab === 'redeem' && (
+            <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-600">
+                  <Gift size={18} />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">兑换套餐</h2>
+                  <p className="mt-1 text-sm leading-6 text-gray-500">
+                    输入购买后收到的一次性兑换码。兑换成功后，额度立即到账；有效套餐会在当前到期日后再叠加 30 天。
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={handleRedeem} className="mt-5 max-w-xl">
+                <label htmlFor="plan-redemption-code" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  套餐兑换码
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="plan-redemption-code"
+                    value={redeemCode}
+                    onChange={(event) => setRedeemCode(event.target.value)}
+                    placeholder="PF-XXXXX-XXXXX-XXXXX-XXXXX"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={80}
+                    className="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-3 font-mono text-sm uppercase outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                  />
+                  <button
+                    type="submit"
+                    disabled={redeemLoading || !redeemCode.trim()}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {redeemLoading ? <><Loader2 size={16} className="animate-spin" />兑换中...</> : '立即兑换'}
+                  </button>
+                </div>
+                {redeemError && (
+                  <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{redeemError}</div>
+                )}
+                {redeemMsg && (
+                  <div className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{redeemMsg}</div>
+                )}
+              </form>
             </div>
           )}
 
