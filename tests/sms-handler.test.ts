@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { count } = vi.hoisted(() => ({ count: vi.fn() }));
+const { transaction } = vi.hoisted(() => ({ transaction: vi.fn() }));
 
 vi.mock('../api/_lib/prisma', () => ({
   default: {
-    smsCode: {
-      count,
-    },
+    $transaction: transaction,
   },
 }));
 
@@ -30,12 +28,12 @@ function responseRecorder() {
 
 describe('SMS endpoint infrastructure failures', () => {
   beforeEach(() => {
-    count.mockReset();
+    transaction.mockReset();
   });
 
   it('returns a stable JSON 503 when the database schema is unavailable', async () => {
     const schemaError = Object.assign(new Error('missing requestIp'), { code: 'P2022' });
-    count.mockRejectedValue(schemaError);
+    transaction.mockRejectedValue(schemaError);
     const { response, state } = responseRecorder();
 
     await handler({

@@ -56,11 +56,14 @@ describe('SMS codes', () => {
   });
 
   it('keeps plaintext codes out of persistence and bounds each verification row', () => {
-    const source = readFileSync('api/auth/sms.ts', 'utf8');
+    const handlerSource = readFileSync('api/auth/sms.ts', 'utf8');
+    const transactionSource = readFileSync('api/_lib/sms-transactions.ts', 'utf8');
+    const source = `${handlerSource}\n${transactionSource}`;
     expect(source).not.toMatch(/Math\.random|code:\s*newCode|smsCode\.code\s*!==\s*code/);
     expect(source).toContain('hashSmsCode(phone, newCode)');
-    expect(source).toContain('attempts: { lt: MAX_SMS_VERIFY_ATTEMPTS }');
-    expect(source).toContain('used: false');
+    expect(transactionSource).toContain('FOR UPDATE');
+    expect(transactionSource).toContain('MAX_SMS_VERIFY_ATTEMPTS');
+    expect(transactionSource).toContain("data: { used: true }");
     expect(source).toContain('requestIp');
   });
 });
