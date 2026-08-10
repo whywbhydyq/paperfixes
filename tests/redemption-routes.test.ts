@@ -154,6 +154,7 @@ describe('admin redemption-code resource', () => {
       source: 'afdian', note: undefined, expiresAt: null,
     });
     expect(state.status).toBe(201);
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
     expect(state.body).toMatchObject({
       batchId: 'batch-1', quantity: 2,
       codes: ['PF-ABCDE-FGHJK-LMNPQ-RSTUV', 'PF-23456-789AB-CDEFG-HJKLM'],

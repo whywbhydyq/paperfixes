@@ -282,6 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           note,
           expiresAt,
         });
+        res.setHeader('Cache-Control', 'private, no-store');
         return res.status(201).json({
           ...result,
           quantity: result.codes.length,

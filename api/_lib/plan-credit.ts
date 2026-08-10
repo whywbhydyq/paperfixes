@@ -1,7 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import { calculateExtendedExpiry } from './plan-entitlements.js';
 
-export type PlanCreditTransaction = Pick<Prisma.TransactionClient, 'user' | 'topup'>;
+export type PlanCreditTransaction = Pick<Prisma.TransactionClient, 'user' | 'topup'>
+  & Partial<Pick<Prisma.TransactionClient, '$queryRaw'>>;
 
 export interface PlanCreditInput {
   userId: string;
@@ -23,6 +24,13 @@ export async function applyPlanCredit(
   tx: PlanCreditTransaction,
   input: PlanCreditInput,
 ) {
+  // Serialize plan changes for one user across different paid orders or
+  // different redemption codes. Without this row lock, two concurrent valid
+  // settlements could both calculate the same next expiry and lose 30 days.
+  if (tx.$queryRaw) {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${input.userId} FOR UPDATE`;
+  }
+
   const user = await tx.user.findUnique({ where: { id: input.userId } });
   if (!user) throw new Error('USER_NOT_FOUND');
 
