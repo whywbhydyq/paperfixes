@@ -97,8 +97,24 @@ describe('PaperFix initial entry boundary', () => {
     expect(reduce).toContain('min-h-[clamp(340px,42vh,400px)]');
 
     const editorGrid = reduce.indexOf('grid grid-cols-1 gap-4 lg:grid-cols-2');
-    const submitArea = reduce.indexOf('onClick={handleSubmit}');
+    const submitArea = reduce.indexOf('data-rewrite-submit-placement="desktop"');
     expect(editorGrid).toBeGreaterThan(-1);
     expect(submitArea).toBeGreaterThan(editorGrid);
+  });
+
+  it('places a narrow-screen submit action between the input and output panels', () => {
+    const reduce = read('src/pages/ReducePage.tsx');
+
+    const grid = reduce.indexOf('grid grid-cols-1 gap-4 lg:grid-cols-2');
+    const mobileSubmit = reduce.indexOf('data-rewrite-submit-placement="mobile"');
+    const outputPanel = reduce.indexOf('data-rewrite-output-panel');
+    const desktopSubmit = reduce.indexOf('data-rewrite-submit-placement="desktop"');
+
+    expect(grid).toBeGreaterThan(-1);
+    expect(mobileSubmit).toBeGreaterThan(grid);
+    expect(outputPanel).toBeGreaterThan(mobileSubmit);
+    expect(desktopSubmit).toBeGreaterThan(outputPanel);
+    expect(reduce).toContain('className="lg:hidden"');
+    expect(reduce).toContain('className="mt-5 hidden lg:block"');
   });
 });

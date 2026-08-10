@@ -153,6 +153,23 @@ export default function ReducePage() {
   };
 
   const isEditable = phase === 'input';
+  const renderInputSubmitAction = () => (
+    <>
+      <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 py-4 text-base font-bold text-white shadow-xl shadow-primary-100 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none">
+        {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 正在提交...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册并开始优化</>) : (<><Send size={18} /> 开始优化文本 <ArrowRight size={16} className="ml-1" /></>)}
+      </button>
+      <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
+        <Info size={13} className="mt-0.5 shrink-0" />
+        <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；建议一次处理一个自然段，便于对照修改。</span>
+      </div>
+    </>
+  );
+
+  const renderResetAction = () => (
+    <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50">
+      <RotateCcw size={16} /> 继续优化下一段
+    </button>
+  );
 
   return (
     <div className="min-h-screen overflow-hidden bg-gray-50/70">
@@ -223,7 +240,13 @@ export default function ReducePage() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          {phase === 'input' && (
+            <div data-rewrite-submit-placement="mobile" className="lg:hidden">
+              {renderInputSubmitAction()}
+            </div>
+          )}
+
+          <div data-rewrite-output-panel className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${phase === 'done' ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'}`}>
@@ -269,23 +292,18 @@ export default function ReducePage() {
           </div>
         </div>
 
-        <div className="mt-5">
+        <div data-rewrite-submit-placement="desktop" className="mt-5 hidden lg:block">
           {phase === 'input' ? (
-            <>
-              <button onClick={handleSubmit} disabled={submitting || !text.trim() || isOverLimit} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 py-4 text-base font-bold text-white shadow-xl shadow-primary-100 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none">
-                {submitting ? (<><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> 正在提交...</>) : !isLoggedIn ? (<><Send size={18} /> 免费注册并开始优化</>) : (<><Send size={18} /> 开始优化文本 <ArrowRight size={16} className="ml-1" /></>)}
-              </button>
-              <div className="mt-3 flex items-start justify-center gap-2 px-1 text-xs text-gray-400">
-                <Info size={13} className="mt-0.5 shrink-0" />
-                <span>单次 {MIN_CHARS}-{MAX_CHARS} 字；建议一次处理一个自然段，便于对照修改。</span>
-              </div>
-            </>
+            renderInputSubmitAction()
           ) : phase === 'done' ? (
-            <button onClick={handleReset} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50">
-              <RotateCcw size={16} /> 继续优化下一段
-            </button>
+            renderResetAction()
           ) : null}
         </div>
+        {phase === 'done' && (
+          <div className="mt-5 lg:hidden">
+            {renderResetAction()}
+          </div>
+        )}
       </div>
     </div>
   );
