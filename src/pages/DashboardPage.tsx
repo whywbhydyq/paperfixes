@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { getPlanDisplayName } from '../lib/plan-display';
 import {
   fetchQuota, fetchTopups, fetchJobs, changePassword, redeemPlanCodeRequest,
   type TopupRecord, type JobRecord,
@@ -152,7 +153,7 @@ export default function DashboardPage() {
     || user?.wechatName 
     || (rawPhone ? '手机用户' + rawPhone.slice(-4) : null)
     || '用户';
-  const planName = user?.plan === 'pro' ? '专业套餐' : user?.plan === 'basic' ? '基础套餐' : '免费套餐';
+  const planName = getPlanDisplayName(user?.plan);
 
   return (
     <div className="min-h-screen bg-gray-50/50">

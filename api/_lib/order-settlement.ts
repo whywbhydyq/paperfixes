@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import prisma from './prisma.js';
 import { applyPlanCredit } from './plan-credit.js';
 
-type SettlementTx = Pick<Prisma.TransactionClient, 'order' | 'user' | 'topup'>;
+type SettlementTx = Pick<Prisma.TransactionClient, 'order' | 'user' | 'topup' | '$queryRaw'>;
 
 export interface SettlementClient {
   $transaction<T>(callback: (tx: SettlementTx) => Promise<T>): Promise<T>;

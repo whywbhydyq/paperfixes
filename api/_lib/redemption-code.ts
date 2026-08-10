@@ -175,7 +175,15 @@ export async function createRedemptionCodes(
     };
   });
 
-  const inserted = await client.redemptionCode.createMany({ data });
+  let inserted: { count: number };
+  try {
+    inserted = await client.redemptionCode.createMany({ data });
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      throw new Error('REDEMPTION_GENERATION_CONFLICT');
+    }
+    throw error;
+  }
   if (inserted.count !== data.length) throw new Error('REDEMPTION_GENERATION_CONFLICT');
 
   return { batchId, codes };

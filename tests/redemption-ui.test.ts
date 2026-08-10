@@ -14,4 +14,5 @@ it('offers a minimal logged-in redemption entry and refreshes displayed entitlem
   expect(dashboard).toContain('套餐兑换码');
   expect(dashboard).toContain('redeemPlanCodeRequest(redeemCode)');
   expect(dashboard).toContain('updateUserEntitlements');
+  expect(dashboard).toContain('getPlanDisplayName(user?.plan)');
 });

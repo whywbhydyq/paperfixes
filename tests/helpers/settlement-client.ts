@@ -35,6 +35,9 @@ export function createSettlementClient(
       const execute = async () => {
         const snapshot = structuredClone(state);
         const tx = {
+          $queryRaw: async (_parts: TemplateStringsArray, userId: string) => (
+            userId === state.user.id ? [{ id: userId }] : []
+          ),
           order: {
             findUnique: async ({ where }: any) => {
               if (where.id) return where.id === state.order.id ? { ...state.order } : null;

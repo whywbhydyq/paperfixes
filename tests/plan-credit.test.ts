@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
 import { applyPlanCredit } from '../api/_lib/plan-credit';
 
@@ -36,4 +37,14 @@ it('locks the user row before calculating a shared plan entitlement', async () =
 
   expect(events).toEqual(['lock:u1', 'read', 'update', 'topup']);
   expect(tx.$queryRaw).toHaveBeenCalledOnce();
+});
+
+it('requires the row-lock capability instead of silently skipping it', () => {
+  const source = readFileSync('api/_lib/plan-credit.ts', 'utf8');
+  expect(source).toMatch(
+    /Pick<\s*Prisma\.TransactionClient,\s*'user' \| 'topup' \| '\$queryRaw'\s*>/,
+  );
+  expect(source).not.toContain("Partial<Pick<Prisma.TransactionClient, '$queryRaw'>>");
+  expect(source).not.toContain('if (tx.$queryRaw)');
+  expect(source).toMatch(/await tx\.\$queryRaw`SELECT[\s\S]+FOR UPDATE`/);
 });

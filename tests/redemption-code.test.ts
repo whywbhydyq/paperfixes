@@ -10,6 +10,7 @@ import {
 const now = new Date('2026-08-10T00:00:00.000Z');
 const displayCode = 'PF-ABCDE-FGHJK-LMNPQ-RSTUV';
 const canonicalCode = 'PFABCDEFGHJKLMNPQRSTUV';
+const secondDisplayCode = 'PF-23456-789AB-CDEFG-HJKLM';
 
 interface FakeUser {
   id: string;
@@ -53,7 +54,7 @@ function createRedemptionClient(options: {
       planKey: 'basic',
       quota: 50,
       price: 29,
-      source: 'afdian',
+      source: 'marketplace',
       batchId: 'batch-1',
       note: null,
       redeemedById: null,
@@ -79,6 +80,9 @@ function createRedemptionClient(options: {
         topups: state.topups,
       });
       const tx = {
+        $queryRaw: async (_parts: TemplateStringsArray, userId: string) => (
+          state.users.has(userId) ? [{ id: userId }] : []
+        ),
         redemptionCode: {
           findUnique: async ({ where }: { where: { codeHash?: string; id?: string } }) => {
             if (where.codeHash && where.codeHash !== state.code.codeHash) return null;
@@ -138,6 +142,111 @@ function createRedemptionClient(options: {
   return client;
 }
 
+function createBarrierRedemptionClient() {
+  const codeFixtures: FakeCode[] = [
+    {
+      id: 'voucher-1', codeHash: hashRedemptionCode(displayCode), codeHint: 'STUV',
+      planKey: 'basic', quota: 50, price: 29, source: 'marketplace', batchId: 'batch-1',
+      note: null, redeemedById: null, redeemedAt: null, expiresAt: null,
+    },
+    {
+      id: 'voucher-2', codeHash: hashRedemptionCode(secondDisplayCode), codeHint: 'JKLM',
+      planKey: 'basic', quota: 50, price: 29, source: 'marketplace', batchId: 'batch-1',
+      note: null, redeemedById: null, redeemedAt: null, expiresAt: null,
+    },
+  ];
+  const state = {
+    codes: new Map(codeFixtures.map((code) => [code.id, clone(code)])),
+    user: {
+      id: 'u1', plan: 'pro', quota: 7,
+      planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
+    },
+    topups: [] as Array<Record<string, unknown>>,
+    lockEvents: [] as string[],
+  };
+
+  let barrierArrivals = 0;
+  let openBarrier!: () => void;
+  const barrier = new Promise<void>((resolve) => { openBarrier = resolve; });
+  let userLockTail = Promise.resolve();
+  let transactionSequence = 0;
+
+  const client = {
+    state,
+    async $transaction<T>(callback: (tx: RedemptionTransaction) => Promise<T>): Promise<T> {
+      const transactionId = ++transactionSequence;
+      let releaseUserLock: (() => void) | null = null;
+      const tx = {
+        $queryRaw: async (_parts: TemplateStringsArray, userId: string) => {
+          state.lockEvents.push(`wait:${transactionId}:${userId}`);
+          barrierArrivals += 1;
+          if (barrierArrivals === 2) openBarrier();
+          await barrier;
+
+          let release!: () => void;
+          const previous = userLockTail;
+          userLockTail = new Promise<void>((resolve) => { release = resolve; });
+          await previous;
+          releaseUserLock = release;
+          state.lockEvents.push(`acquire:${transactionId}:${userId}`);
+          return [{ id: userId }];
+        },
+        redemptionCode: {
+          findUnique: async ({ where }: { where: { codeHash?: string; id?: string } }) => {
+            const found = [...state.codes.values()].find((code) =>
+              (where.codeHash ? code.codeHash === where.codeHash : code.id === where.id)
+            );
+            return found ? clone(found) : null;
+          },
+          updateMany: async ({ where, data }: {
+            where: { id: string; redeemedAt: null; OR?: unknown };
+            data: { redeemedById: string; redeemedAt: Date };
+          }) => {
+            const code = state.codes.get(where.id);
+            if (!code || code.redeemedAt || (code.expiresAt && code.expiresAt <= data.redeemedAt)) {
+              return { count: 0 };
+            }
+            Object.assign(code, clone(data));
+            return { count: 1 };
+          },
+        },
+        user: {
+          findUnique: async ({ where }: { where: { id: string } }) =>
+            where.id === state.user.id ? clone(state.user) : null,
+          update: async ({ where, data }: {
+            where: { id: string };
+            data: { quota: number | { increment: number }; plan: string; planExpiresAt: Date };
+          }) => {
+            if (where.id !== state.user.id) throw new Error('USER_NOT_FOUND');
+            state.user.quota = typeof data.quota === 'number'
+              ? data.quota
+              : state.user.quota + data.quota.increment;
+            state.user.plan = data.plan;
+            state.user.planExpiresAt = clone(data.planExpiresAt);
+            return clone(state.user);
+          },
+        },
+        topup: {
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            state.topups.push(clone(data));
+            return clone(data);
+          },
+        },
+      } as unknown as RedemptionTransaction;
+
+      try {
+        return await callback(tx);
+      } finally {
+        if (releaseUserLock) {
+          state.lockEvents.push(`release:${transactionId}:u1`);
+          releaseUserLock();
+        }
+      }
+    },
+  };
+  return client;
+}
+
 describe('redemption code generation', () => {
   it('normalizes formatting and hashes the canonical code consistently', () => {
     expect(normalizeRedemptionCode(`  ${displayCode.toLowerCase()}  `)).toBe(canonicalCode);
@@ -158,7 +267,7 @@ describe('redemption code generation', () => {
     };
 
     const result = await createRedemptionCodes({
-      planKey: 'basic', quota: 50, price: 29, quantity: 1, source: 'afdian',
+      planKey: 'basic', quota: 50, price: 29, quantity: 1, source: 'marketplace',
     }, generationClient, {
       generateCode: () => displayCode,
       generateBatchId: () => 'batch-1',
@@ -170,11 +279,28 @@ describe('redemption code generation', () => {
       codeHash: hashRedemptionCode(displayCode),
       codeHint: 'STUV',
       batchId: 'batch-1',
-      source: 'afdian',
+      source: 'marketplace',
     });
     expect(writes[0]).not.toHaveProperty('code');
     expect(JSON.stringify(writes)).not.toContain(displayCode);
     expect(JSON.stringify(writes)).not.toContain(canonicalCode);
+  });
+
+  it('classifies a digest collision as a retryable generation conflict', async () => {
+    const generationClient = {
+      redemptionCode: {
+        createMany: async () => {
+          throw Object.assign(new Error('unique constraint'), { code: 'P2002' });
+        },
+      },
+    };
+
+    await expect(createRedemptionCodes({
+      planKey: 'basic', quota: 50, quantity: 1,
+    }, generationClient, {
+      generateCode: () => displayCode,
+      generateBatchId: () => 'batch-collision',
+    })).rejects.toThrow('REDEMPTION_GENERATION_CONFLICT');
   });
 });
 
@@ -211,6 +337,29 @@ describe('one-time plan redemption', () => {
       .toEqual(['already_redeemed', 'redeemed']);
     expect(client.state.users.get('u1')?.quota).toBe(53);
     expect(client.state.topups).toHaveLength(1);
+  });
+
+  it('serializes two different codes for one user and stacks both 30-day periods', async () => {
+    const client = createBarrierRedemptionClient();
+
+    const results = await Promise.all([
+      redeemPlanCode({ userId: 'u1', code: displayCode, redeemedAt: now }, client),
+      redeemPlanCode({ userId: 'u1', code: secondDisplayCode, redeemedAt: now }, client),
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(['redeemed', 'redeemed']);
+    expect(client.state.user.quota).toBe(107);
+    expect(client.state.user.planExpiresAt.toISOString()).toBe('2026-10-19T00:00:00.000Z');
+    expect(client.state.topups).toHaveLength(2);
+    expect(client.state.lockEvents.filter((event) => event.startsWith('wait:'))).toHaveLength(2);
+    const criticalEvents = client.state.lockEvents.filter((event) =>
+      event.startsWith('acquire:') || event.startsWith('release:')
+    );
+    expect(criticalEvents).toHaveLength(4);
+    expect(criticalEvents[0]).toMatch(/^acquire:/);
+    expect(criticalEvents[1]).toMatch(/^release:/);
+    expect(criticalEvents[2]).toMatch(/^acquire:/);
+    expect(criticalEvents[3]).toMatch(/^release:/);
   });
 
   it('does not let another user reuse a redeemed code', async () => {

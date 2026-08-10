@@ -43,6 +43,16 @@ const DEFAULT_PLANS: PlanConfig[] = [
   },
 ];
 
+const REDEMPTION_INPUT_ERRORS = new Set([
+  'REDEMPTION_PLAN_INVALID',
+  'REDEMPTION_QUOTA_INVALID',
+  'REDEMPTION_QUANTITY_INVALID',
+  'REDEMPTION_PRICE_INVALID',
+  'REDEMPTION_SOURCE_INVALID',
+  'REDEMPTION_NOTE_INVALID',
+  'REDEMPTION_EXPIRY_INVALID',
+]);
+
 export function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; changed: boolean } {
   let changed = false;
   const normalized = plans.map((plan) => {
@@ -296,7 +306,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : '';
-        if (message.startsWith('REDEMPTION_')) {
+        if (message === 'REDEMPTION_GENERATION_CONFLICT') {
+          return res.status(409).json({
+            error: '兑换码生成冲突，请重试',
+            retryable: true,
+          });
+        }
+        if (REDEMPTION_INPUT_ERRORS.has(message)) {
           return res.status(400).json({ error: '兑换码批次参数无效' });
         }
         throw error;
