@@ -5,12 +5,16 @@ import { getClientIp, rejectCrossOriginMutation } from '../_lib/http-security.js
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 import {
   generateSmsCode,
-  getSmsRateLimitViolation,
   hashSmsCode,
-  matchesSmsCode,
-  MAX_SMS_VERIFY_ATTEMPTS,
 } from '../_lib/sms-code.js';
 import { sendSms } from '../_lib/sms.js';
+import {
+  activateSmsReservation,
+  expireSmsReservation,
+  reserveSmsCode,
+  SmsVerificationConfigurationError,
+  verifyAndConsumeSmsCode,
+} from '../_lib/sms-transactions.js';
 import { toPublicUser } from '../_lib/user-view.js';
 
 function isValidPhone(phone: unknown): phone is string {
@@ -31,20 +35,6 @@ async function handleSmsRequest(req: VercelRequest, res: VercelResponse) {
   if (action === 'send') {
     const now = new Date();
     const requestIp = getClientIp(req);
-    const minuteAgo = new Date(now.getTime() - 60 * 1000);
-    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const [phoneMinute, phoneDay, ipHour, ipDay] = await Promise.all([
-      prisma.smsCode.count({ where: { phone, createdAt: { gt: minuteAgo } } }),
-      prisma.smsCode.count({ where: { phone, createdAt: { gt: dayAgo } } }),
-      prisma.smsCode.count({ where: { requestIp, createdAt: { gt: hourAgo } } }),
-      prisma.smsCode.count({ where: { requestIp, createdAt: { gt: dayAgo } } }),
-    ]);
-    const violation = getSmsRateLimitViolation({ phoneMinute, phoneDay, ipHour, ipDay });
-    if (violation) {
-      return res.status(429).json({ success: false, error: violation, message: violation });
-    }
-
     const newCode = generateSmsCode();
     let digest: string;
     try {
@@ -56,38 +46,73 @@ async function handleSmsRequest(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ success: false, error: '验证码发送失败，请稍后重试' });
     }
 
-    await prisma.smsCode.updateMany({
-      where: { phone, used: false },
-      data: { used: true },
+    const reservation = await reserveSmsCode(prisma, {
+      phone,
+      requestIp,
+      digest,
+      now,
+      expiresAt: new Date(now.getTime() + 5 * 60 * 1000),
     });
-    const smsCode = await prisma.smsCode.create({
-      data: {
-        phone,
-        code: digest,
-        requestIp,
-        expiresAt: new Date(now.getTime() + 5 * 60 * 1000),
-      },
-    });
+    if (reservation.kind === 'rate-limited') {
+      return res.status(429).json({
+        success: false,
+        error: reservation.message,
+        message: reservation.message,
+      });
+    }
 
+    let delivery;
     try {
-      const delivery = await sendSms(phone, newCode);
-      return res.status(200).json({
-        success: true,
-        message: '验证码已发送',
-        ...(delivery.mode === 'development' && process.env.NODE_ENV === 'development'
-          ? { devCode: newCode }
-          : {}),
-      });
+      delivery = await sendSms(phone, newCode);
     } catch (error) {
-      await prisma.smsCode.updateMany({
-        where: { id: smsCode.id, used: false },
-        data: { used: true },
-      });
+      try {
+        await expireSmsReservation(prisma, {
+          id: reservation.id,
+          phone,
+          now: new Date(),
+        });
+      } catch (cleanupError) {
+        const code = typeof cleanupError === 'object' && cleanupError !== null && 'code' in cleanupError
+          ? String(cleanupError.code)
+          : 'unknown';
+        console.error('[SMS] reservation expiration failed', { code });
+      }
       console.error('[SMS] delivery failed', {
         message: error instanceof Error ? error.message : 'unknown',
       });
       return res.status(500).json({ success: false, error: '验证码发送失败，请稍后重试' });
     }
+
+    let activated: boolean;
+    try {
+      activated = await activateSmsReservation(prisma, {
+        id: reservation.id,
+        phone,
+        now: new Date(),
+      });
+    } catch (error) {
+      const code = typeof error === 'object' && error !== null && 'code' in error
+        ? String(error.code)
+        : 'unknown';
+      console.error('[SMS] reservation activation failed', { code });
+      return res.status(503).json({
+        success: false,
+        error: '验证码状态确认失败，请重新获取',
+      });
+    }
+    if (!activated) {
+      return res.status(503).json({
+        success: false,
+        error: '验证码状态确认失败，请重新获取',
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: '验证码已发送',
+      ...(delivery.mode === 'development' && process.env.NODE_ENV === 'development'
+        ? { devCode: newCode }
+        : {}),
+    });
   }
 
   if (action === 'verify') {
@@ -95,46 +120,19 @@ async function handleSmsRequest(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: verificationError });
     }
 
-    const now = new Date();
-    const smsCode = await prisma.smsCode.findFirst({
-      where: {
-        phone,
-        used: false,
-        expiresAt: { gt: now },
-        attempts: { lt: MAX_SMS_VERIFY_ATTEMPTS },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!smsCode) return res.status(400).json({ error: verificationError });
-
-    let matches = false;
+    let verification: 'matched' | 'rejected';
     try {
-      matches = matchesSmsCode(phone, code, smsCode.code);
+      verification = await verifyAndConsumeSmsCode(prisma, { phone, candidate: code });
     } catch (error) {
+      if (!(error instanceof SmsVerificationConfigurationError)) throw error;
       console.error('[SMS] code verification is not configured', {
         message: error instanceof Error ? error.message : 'unknown',
       });
       return res.status(500).json({ error: '验证码验证暂不可用，请稍后重试' });
     }
-
-    if (!matches) {
-      await prisma.smsCode.updateMany({
-        where: { id: smsCode.id, used: false, attempts: smsCode.attempts },
-        data: { attempts: { increment: 1 } },
-      });
+    if (verification === 'rejected') {
       return res.status(400).json({ error: verificationError });
     }
-
-    const consumed = await prisma.smsCode.updateMany({
-      where: {
-        id: smsCode.id,
-        used: false,
-        attempts: { lt: MAX_SMS_VERIFY_ATTEMPTS },
-        expiresAt: { gt: now },
-      },
-      data: { used: true },
-    });
-    if (consumed.count !== 1) return res.status(400).json({ error: verificationError });
 
     const user = await prisma.user.upsert({
       where: { phone },
