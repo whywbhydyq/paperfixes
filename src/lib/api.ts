@@ -172,28 +172,3 @@ export async function changePassword(
     body: JSON.stringify({ oldPassword, newPassword }),
   });
 }
-
-export interface CreatePaymentResponse {
-  submitUrl?: string;
-  params?: Record<string, string>;
-  orderId?: string;
-  error?: string;
-}
-
-export async function createPaymentOrder(
-  planKey: string,
-  payType: 'alipay' | 'wxpay'
-): Promise<CreatePaymentResponse> {
-  return request<CreatePaymentResponse>('/api/payment/create', {
-    method: 'POST',
-    body: JSON.stringify({ planKey, payType }),
-  });
-}
-
-export interface PaymentStatusResponse {
-  status: string;
-}
-
-export async function pollPaymentStatus(orderId: string): Promise<PaymentStatusResponse> {
-  return request<PaymentStatusResponse>(`/api/payment/status?orderId=${orderId}&_t=${Date.now()}`);
-}

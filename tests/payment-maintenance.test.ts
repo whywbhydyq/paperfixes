@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { findFirst } = vi.hoisted(() => ({
@@ -129,11 +129,29 @@ describe('online payment maintenance mode', () => {
   it('keeps paid-plan controls disabled and never mounts the legacy channel modal', () => {
     const pricing = readFileSync('src/pages/PricingPage.tsx', 'utf8');
 
-    expect(pricing).toContain(MAINTENANCE_MESSAGE);
+    expect(pricing).toContain('ONLINE_PAYMENT_MAINTENANCE_MESSAGE');
     expect(pricing).toContain('disabled={plan.price > 0}');
     expect(pricing).not.toContain("import PaymentModal from '../components/PaymentModal'");
     expect(pricing).not.toContain('<PaymentModal');
     expect(pricing).not.toContain('createPaymentOrder');
     expect(pricing).not.toContain('pollPaymentStatus');
+  });
+
+  it('removes retired provider-specific client surfaces instead of leaving a reusable trap', () => {
+    const apiClient = readFileSync('src/lib/api.ts', 'utf8');
+
+    expect(existsSync('src/components/PaymentModal.tsx')).toBe(false);
+    expect(apiClient).not.toContain('createPaymentOrder');
+    expect(apiClient).not.toContain('pollPaymentStatus');
+    expect(apiClient).not.toMatch(/'alipay'\s*\|\s*'wxpay'/);
+  });
+
+  it('makes the retired return page truthful while online checkout is unavailable', () => {
+    const donePage = readFileSync('src/pages/PaymentDonePage.tsx', 'utf8');
+
+    expect(donePage).toContain('ONLINE_PAYMENT_MAINTENANCE_MESSAGE');
+    expect(donePage).not.toContain('支付处理中');
+    expect(donePage).not.toContain('window.close()');
+    expect(donePage).not.toContain('自动关闭');
   });
 });

@@ -9,7 +9,7 @@ const publicFiles = [
   'src/components/Footer.tsx',
   'src/data/articles.ts',
   'src/pages/PricingPage.tsx',
-  'src/components/PaymentModal.tsx',
+  'src/pages/PaymentDonePage.tsx',
   'src/pages/TermsPage.tsx',
 ];
 const copy = publicFiles.map((file) => readFileSync(file, 'utf8')).join('\n');
@@ -26,6 +26,8 @@ it('states the actual retention and plan expiry behavior', () => {
   expect(copy).toContain('付费套餐有效期为 30 天');
   expect(copy).toContain('当前剩余有效期后叠加 30 天');
   expect(copy).toContain('到期后未使用额度清零并恢复免费套餐');
+  expect(copy).toContain('单次购买固定增加所选套餐额度，不自动续费');
+  expect(copy).not.toContain('确认订阅');
 });
 
 it('normalizes every paid plan to one truthful 30-day feature', () => {

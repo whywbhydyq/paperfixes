@@ -15,4 +15,6 @@ it('offers a minimal logged-in redemption entry and refreshes displayed entitlem
   expect(dashboard).toContain('redeemPlanCodeRequest(redeemCode)');
   expect(dashboard).toContain('updateUserEntitlements');
   expect(dashboard).toContain('getPlanDisplayName(user?.plan)');
+  expect(dashboard).toContain('当前未接通线上支付渠道');
+  expect(dashboard).not.toContain('输入购买后收到的一次性兑换码');
 });

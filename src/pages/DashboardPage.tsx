@@ -392,7 +392,8 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="font-semibold text-gray-900">兑换套餐</h2>
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    输入购买后收到的一次性兑换码。兑换成功后，额度立即到账；有效套餐会在当前到期日后再叠加 30 天。
+                    输入由 PaperFix 发放的一次性套餐兑换码。当前未接通线上支付渠道；只有已经取得有效兑换码的用户可以兑换。
+                    兑换成功后，额度立即到账；有效套餐会在当前到期日后再叠加 30 天。
                   </p>
                 </div>
               </div>

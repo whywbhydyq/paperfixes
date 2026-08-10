@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { trackEvent } from '../lib/analytics';
+import { ONLINE_PAYMENT_MAINTENANCE_MESSAGE } from '../../shared/payment-maintenance';
 
 interface PlanConfig {
   planKey: string;
@@ -17,7 +18,6 @@ interface PlanConfig {
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
-const PAYMENT_MAINTENANCE_MESSAGE = '在线支付维护中，暂不可购买';
 
 export default function PricingPage() {
   const { isLoggedIn, openLoginModal } = useAuthStore();
@@ -79,14 +79,15 @@ export default function PricingPage() {
           <h1 className="text-4xl font-bold text-gray-900">简单透明的定价</h1>
           <p className="mt-3 text-gray-500">所有付费套餐有效期为 30 天</p>
           <p className="mt-2 text-sm text-gray-400">
-            有效期内续购将在当前剩余有效期后叠加 30 天；到期后未使用额度清零并恢复免费套餐。
+            单次购买固定增加所选套餐额度，不自动续费。有效期内再次购买将在当前剩余有效期后叠加 30 天；
+            到期后未使用额度清零并恢复免费套餐。
           </p>
           <p
             id="payment-maintenance-status"
             role="status"
             className="mx-auto mt-5 max-w-md rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
           >
-            {PAYMENT_MAINTENANCE_MESSAGE}
+            {ONLINE_PAYMENT_MAINTENANCE_MESSAGE}
           </p>
         </div>
         <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -137,7 +138,7 @@ export default function PricingPage() {
                     onClick={() => handlePlanClick(plan)}
                     disabled={plan.price > 0}
                     aria-describedby={plan.price > 0 ? 'payment-maintenance-status' : undefined}
-                    title={plan.price > 0 ? PAYMENT_MAINTENANCE_MESSAGE : undefined}
+                    title={plan.price > 0 ? ONLINE_PAYMENT_MAINTENANCE_MESSAGE : undefined}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
                       plan.price > 0
                         ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-500 shadow-none'
@@ -148,7 +149,7 @@ export default function PricingPage() {
                   >
                     {plan.price === 0
                       ? (isLoggedIn ? '前往使用' : '免费注册')
-                      : PAYMENT_MAINTENANCE_MESSAGE}
+                      : ONLINE_PAYMENT_MAINTENANCE_MESSAGE}
                   </button>
                 </div>
               );
