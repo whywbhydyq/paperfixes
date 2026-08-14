@@ -73,11 +73,18 @@ beforeEach(() => {
   });
   mocks.configFindUnique.mockResolvedValue({
     key: 'pricing_plans',
-    value: JSON.stringify([{
-      planKey: 'basic', name: '基础套餐', price: 29, quota: 50,
-      minChars: 40, maxChars: 3000, features: ['30 天有效'],
-      popular: true, active: true, sortOrder: 1,
-    }]),
+    value: JSON.stringify([
+      {
+        planKey: 'free', name: '免费体验', price: 0, quota: 3,
+        minChars: 40, maxChars: 500, features: [],
+        popular: false, active: true, sortOrder: 0,
+      },
+      {
+        planKey: 'basic', name: '基础套餐', price: 29, quota: 50,
+        minChars: 40, maxChars: 3000, features: ['30 天有效'],
+        popular: true, active: true, sortOrder: 1,
+      },
+    ]),
   });
 });
 

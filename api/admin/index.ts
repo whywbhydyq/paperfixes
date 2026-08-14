@@ -25,6 +25,45 @@ interface PlanConfig {
   sortOrder: number;
 }
 
+const PLAN_CONFIG_INVALID_CODE = 'PLAN_CONFIG_INVALID';
+
+function planConfigInvalid(): never {
+  throw new Error(PLAN_CONFIG_INVALID_CODE);
+}
+
+function validatePlanConfig(plans: PlanConfig[]) {
+  if (!Array.isArray(plans) || plans.length === 0) planConfigInvalid();
+  const keys = new Set<string>();
+  let freeCount = 0;
+
+  for (const plan of plans) {
+    if (!plan || typeof plan !== 'object') planConfigInvalid();
+    if (typeof plan.planKey !== 'string' || !plan.planKey.trim()
+      || plan.planKey !== plan.planKey.trim() || keys.has(plan.planKey)) {
+      planConfigInvalid();
+    }
+    keys.add(plan.planKey);
+    if (plan.planKey === 'free') freeCount += 1;
+    if (typeof plan.name !== 'string' || !plan.name.trim()) planConfigInvalid();
+    if (typeof plan.active !== 'boolean' || typeof plan.popular !== 'boolean') planConfigInvalid();
+    if (!Number.isSafeInteger(plan.quota) || plan.quota <= 0) planConfigInvalid();
+    if (!Number.isFinite(plan.price) || plan.price < 0) planConfigInvalid();
+    if (!Number.isSafeInteger(plan.minChars) || plan.minChars <= 0
+      || !Number.isSafeInteger(plan.maxChars) || plan.maxChars < plan.minChars) {
+      planConfigInvalid();
+    }
+    if (!Array.isArray(plan.features)
+      || plan.features.some((feature) => typeof feature !== 'string')) {
+      planConfigInvalid();
+    }
+    if (!Number.isSafeInteger(plan.sortOrder)) planConfigInvalid();
+    if (plan.planKey === 'free' && (plan.price !== 0 || plan.quota !== 3 || !plan.active)) {
+      planConfigInvalid();
+    }
+  }
+  if (freeCount !== 1) planConfigInvalid();
+}
+
 const DEFAULT_PLANS: PlanConfig[] = [
   {
     planKey: 'free', name: '免费体验', price: 0, quota: 3,
@@ -57,8 +96,11 @@ const REDEMPTION_INPUT_ERRORS = new Set([
 ]);
 
 export function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; changed: boolean } {
+  if (!Array.isArray(plans)) planConfigInvalid();
+  validatePlanConfig(plans);
   let changed = false;
   const normalized = plans.map((plan) => {
+    if (!plan || typeof plan !== 'object') planConfigInvalid();
     const features = Array.isArray(plan.features)
       ? plan.features.filter((feature): feature is string => typeof feature === 'string')
       : [];
@@ -91,6 +133,7 @@ export function normalizePlans(plans: PlanConfig[]): { plans: PlanConfig[]; chan
     return nextPlan;
   });
 
+  validatePlanConfig(normalized);
   return { plans: normalized, changed };
 }
 
@@ -141,8 +184,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const auth = await checkAdmin(req);
       if (!auth.ok) return res.status(403).json({ error: '无权限' });
       const { plans } = req.body || {};
-      if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans 必须是数组' });
-      const normalized = normalizePlans(plans as PlanConfig[]).plans;
+      if (!Array.isArray(plans)) {
+        return res.status(400).json({ error: '套餐配置无效', code: PLAN_CONFIG_INVALID_CODE });
+      }
+      let normalized: PlanConfig[];
+      try {
+        normalized = normalizePlans(plans as PlanConfig[]).plans;
+      } catch (error) {
+        if (error instanceof Error && error.message === PLAN_CONFIG_INVALID_CODE) {
+          return res.status(400).json({ error: '套餐配置无效', code: PLAN_CONFIG_INVALID_CODE });
+        }
+        throw error;
+      }
       await prisma.config.upsert({
         where: { key: 'pricing_plans' },
         update: { value: JSON.stringify(normalized) },
@@ -217,21 +270,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         code: 'PLAN_GRANT_FIELDS_FORBIDDEN',
       });
     }
-    if (typeof userId !== 'string' || typeof planKey !== 'string') {
+    const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
+    const normalizedPlanKey = typeof planKey === 'string' ? planKey.trim() : '';
+    if (!normalizedUserId || !normalizedPlanKey) {
       return res.status(400).json({ error: '参数错误', code: 'PLAN_GRANT_INVALID' });
     }
 
-    const plans = await ensureDefaultConfig();
-    const plan = plans.find((candidate) =>
-      candidate.planKey === planKey && candidate.active && candidate.planKey !== 'free'
-    );
-    if (!plan) {
-      return res.status(400).json({ error: '套餐不存在或已停用', code: 'PLAN_GRANT_INVALID' });
-    }
-
     try {
+      const plans = await ensureDefaultConfig();
+      const plan = plans.find((candidate) =>
+        candidate.planKey === normalizedPlanKey && candidate.active && candidate.planKey !== 'free'
+      );
+      if (!plan) {
+        return res.status(400).json({ error: '套餐不存在或已停用', code: 'PLAN_GRANT_INVALID' });
+      }
       const creditedUser = await prisma.$transaction((tx) => applyPlanCredit(tx, {
-        userId,
+        userId: normalizedUserId,
         planKey: plan.planKey,
         quota: plan.quota,
         price: plan.price,
@@ -245,7 +299,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           quota: plan.quota,
           price: plan.price,
         },
-        user: creditedUser,
+        user: {
+          id: creditedUser.id,
+          plan: creditedUser.plan,
+          quota: creditedUser.quota,
+          planExpiresAt: creditedUser.planExpiresAt,
+        },
       });
     } catch (error) {
       if (error instanceof Error && error.message === PLAN_CHANGE_REQUIRES_EXPIRY_CODE) {
@@ -253,6 +312,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: '当前付费套餐有效期内只能再次发放同一套餐',
           code: PLAN_CHANGE_REQUIRES_EXPIRY_CODE,
         });
+      }
+      if (error instanceof Error && error.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: '用户不存在', code: 'USER_NOT_FOUND' });
+      }
+      if (error instanceof Error && error.message === PLAN_CONFIG_INVALID_CODE) {
+        return res.status(400).json({ error: '套餐配置无效', code: PLAN_CONFIG_INVALID_CODE });
       }
       throw error;
     }

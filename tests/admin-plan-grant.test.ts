@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   configFindUnique: vi.fn(),
   configUpdate: vi.fn(),
+  configUpsert: vi.fn(),
   userFindUnique: vi.fn(),
   userUpdate: vi.fn(),
   transaction: vi.fn(),
@@ -41,7 +42,7 @@ vi.mock('../api/_lib/prisma', () => ({
       findUnique: mocks.configFindUnique,
       update: mocks.configUpdate,
       create: vi.fn(),
-      upsert: vi.fn(),
+      upsert: mocks.configUpsert,
     },
     user: {
       findUnique: mocks.userFindUnique,
@@ -123,6 +124,23 @@ describe('POST /api/admin?resource=topup', () => {
     });
   });
 
+  it('never returns sensitive user fields from a plan grant', async () => {
+    mocks.applyPlanCredit.mockResolvedValue({
+      id: 'user-1', plan: 'basic', quota: 53,
+      planExpiresAt: new Date('2026-09-09T00:00:00.000Z'),
+      passwordHash: 'secret-hash', wechatOpenId: 'secret-open-id', phone: '13800000000',
+    });
+    const { response, state } = responseRecorder();
+
+    await adminHandler({
+      method: 'POST', query: { resource: 'topup' }, headers: {},
+      body: { userId: 'user-1', planKey: 'basic' },
+    } as never, response as never);
+
+    expect(state.status).toBe(200);
+    expect(JSON.stringify(state.body)).not.toMatch(/passwordHash|wechatOpenId|secret-hash|secret-open-id/);
+  });
+
   it.each(['free', 'retired', 'unknown'])(
     'rejects non-paid, inactive or unknown plan %s before opening a transaction',
     async (planKey) => {
@@ -172,6 +190,86 @@ describe('POST /api/admin?resource=topup', () => {
 
     expect(state.status).toBe(409);
     expect(state.body).toMatchObject({ code: 'PLAN_CHANGE_REQUIRES_EXPIRY' });
+  });
+
+  it('trims userId and rejects an empty identifier before opening a transaction', async () => {
+    const { response, state } = responseRecorder();
+    await adminHandler({
+      method: 'POST', query: { resource: 'topup' }, headers: {},
+      body: { userId: '   ', planKey: 'basic' },
+    } as never, response as never);
+
+    expect(state.status).toBe(400);
+    expect(state.body).toMatchObject({ code: 'PLAN_GRANT_INVALID' });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it('returns a stable 404 when the target user does not exist', async () => {
+    mocks.applyPlanCredit.mockRejectedValue(new Error('USER_NOT_FOUND'));
+    const { response, state } = responseRecorder();
+    await adminHandler({
+      method: 'POST', query: { resource: 'topup' }, headers: {},
+      body: { userId: '  missing-user  ', planKey: 'basic' },
+    } as never, response as never);
+
+    expect(mocks.applyPlanCredit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: 'missing-user' }),
+    );
+    expect(state.status).toBe(404);
+    expect(state.body).toMatchObject({ code: 'USER_NOT_FOUND' });
+  });
+});
+
+describe('pricing plan configuration validation', () => {
+  it('returns the stable validation code when plans is null', async () => {
+    const { response, state } = responseRecorder();
+    await adminHandler({
+      method: 'PUT', query: { resource: 'config' }, headers: {},
+      body: { plans: null },
+    } as never, response as never);
+
+    expect(state.status).toBe(400);
+    expect(state.body).toMatchObject({ code: 'PLAN_CONFIG_INVALID' });
+    expect(mocks.configUpsert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['negative quota', { quota: -1 }],
+    ['zero quota', { quota: 0 }],
+    ['null quota', { quota: null }],
+    ['fractional quota', { quota: 1.5 }],
+    ['negative price', { price: -1 }],
+    ['null price', { price: null }],
+    ['empty plan key', { planKey: '' }],
+  ])('rejects %s with a stable 400 before saving', async (_label, invalidFields) => {
+    const invalidPlans = structuredClone(plans);
+    Object.assign(invalidPlans[1], invalidFields);
+    const { response, state } = responseRecorder();
+
+    await adminHandler({
+      method: 'PUT', query: { resource: 'config' }, headers: {},
+      body: { plans: invalidPlans },
+    } as never, response as never);
+
+    expect(state.status).toBe(400);
+    expect(state.body).toMatchObject({ code: 'PLAN_CONFIG_INVALID' });
+    expect(mocks.configUpsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate plan keys before saving', async () => {
+    const invalidPlans = structuredClone(plans);
+    invalidPlans[2].planKey = 'basic';
+    const { response, state } = responseRecorder();
+
+    await adminHandler({
+      method: 'PUT', query: { resource: 'config' }, headers: {},
+      body: { plans: invalidPlans },
+    } as never, response as never);
+
+    expect(state.status).toBe(400);
+    expect(state.body).toMatchObject({ code: 'PLAN_CONFIG_INVALID' });
+    expect(mocks.configUpsert).not.toHaveBeenCalled();
   });
 });
 

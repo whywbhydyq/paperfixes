@@ -6,11 +6,12 @@ import {
   isOnlinePlanCheckoutDisabled,
   ONLINE_PAYMENT_MAINTENANCE_MESSAGE,
 } from '../../shared/payment-maintenance';
+import { getPricingPlanPresentation } from '../lib/plan-display';
 
 interface PlanConfig {
   planKey: string;
   name: string;
-  price: number;
+  price: number | null;
   quota: number;
   minChars: number;
   maxChars: number;
@@ -100,6 +101,7 @@ export default function PricingPage() {
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((plan) => {
               const Icon = plan.planKey === 'pro' ? Crown : Zap;
+              const presentation = getPricingPlanPresentation(plan.planKey, plan.price, isLoggedIn);
               return (
                 <div
                   key={plan.planKey}
@@ -125,7 +127,7 @@ export default function PricingPage() {
                   <div className="mb-6">
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-extrabold text-gray-900">
-                        {plan.price === 0 ? '免费' : `¥${plan.price}`}
+                        {presentation.priceLabel}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{plan.quota} 次改写额度 · 单次最多 {plan.maxChars} 字</p>
@@ -140,20 +142,18 @@ export default function PricingPage() {
                   </div>
                   <button
                     onClick={() => handlePlanClick(plan)}
-                    disabled={isOnlinePlanCheckoutDisabled(plan.planKey)}
-                    aria-describedby={isOnlinePlanCheckoutDisabled(plan.planKey) ? 'payment-maintenance-status' : undefined}
-                    title={isOnlinePlanCheckoutDisabled(plan.planKey) ? ONLINE_PAYMENT_MAINTENANCE_MESSAGE : undefined}
+                    disabled={presentation.checkoutDisabled}
+                    aria-describedby={presentation.checkoutDisabled ? 'payment-maintenance-status' : undefined}
+                    title={presentation.checkoutDisabled ? ONLINE_PAYMENT_MAINTENANCE_MESSAGE : undefined}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
-                      isOnlinePlanCheckoutDisabled(plan.planKey)
+                      presentation.checkoutDisabled
                         ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-500 shadow-none'
                         : plan.popular
                         ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-200 hover:shadow-lg'
                         : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    {plan.price === 0
-                      ? (isLoggedIn ? '前往使用' : '免费注册')
-                      : ONLINE_PAYMENT_MAINTENANCE_MESSAGE}
+                    {presentation.ctaLabel}
                   </button>
                 </div>
               );

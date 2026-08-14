@@ -119,3 +119,69 @@ it('does not let an unresolved legacy paid plan bypass the cross-plan rule', asy
     note: 'legacy cross plan', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
   })).rejects.toThrow(PLAN_CHANGE_REQUIRES_EXPIRY_CODE);
 });
+
+it.each([-1, 0, null, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+  'rejects invalid quota %s before locking or writing',
+  async (quota) => {
+    const tx = {
+      $queryRaw: vi.fn(),
+      user: { findUnique: vi.fn(), update: vi.fn() },
+      topup: { create: vi.fn() },
+    };
+
+    await expect(applyPlanCredit(tx as never, {
+      userId: 'u1', planKey: 'basic', quota: quota as number, price: 29,
+      note: 'invalid', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+    })).rejects.toThrow('PLAN_CREDIT_QUOTA_INVALID');
+
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(tx.user.update).not.toHaveBeenCalled();
+    expect(tx.topup.create).not.toHaveBeenCalled();
+  },
+);
+
+it('selects only safe entitlement fields from the updated user', async () => {
+  const update = vi.fn(async () => ({
+    id: 'u1', plan: 'basic', quota: 53,
+    planExpiresAt: new Date('2026-09-09T00:00:00.000Z'),
+  }));
+  const tx = {
+    $queryRaw: vi.fn(async () => [{ id: 'u1' }]),
+    user: {
+      findUnique: vi.fn(async () => ({
+        id: 'u1', plan: 'free', quota: 3, planExpiresAt: null,
+      })),
+      update,
+    },
+    topup: { create: vi.fn(async () => ({})) },
+  };
+
+  await applyPlanCredit(tx as never, {
+    userId: 'u1', planKey: 'basic', quota: 50, price: 29,
+    note: 'safe response', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+  });
+
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({
+    select: {
+      id: true,
+      plan: true,
+      quota: true,
+      planExpiresAt: true,
+    },
+  }));
+});
+
+it('reports a missing user without creating a topup', async () => {
+  const tx = {
+    $queryRaw: vi.fn(async () => []),
+    user: { findUnique: vi.fn(async () => null), update: vi.fn() },
+    topup: { create: vi.fn() },
+  };
+
+  await expect(applyPlanCredit(tx as never, {
+    userId: 'missing', planKey: 'basic', quota: 50, price: 29,
+    note: 'missing', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+  })).rejects.toThrow('USER_NOT_FOUND');
+  expect(tx.user.update).not.toHaveBeenCalled();
+  expect(tx.topup.create).not.toHaveBeenCalled();
+});
