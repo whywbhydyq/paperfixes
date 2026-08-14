@@ -17,6 +17,13 @@ Inspect the migration first and confirm it contains no `DROP`, `DELETE`, or `TRU
 
 ## 3. Legacy plan dry-run and apply
 
+Safety limits and locking semantics:
+
+- Dry-run uses ordinary, unlocked reads only: no interactive transaction, advisory lock, or `FOR UPDATE`. Its count and digest are evidence for review, not a snapshot guarantee; apply re-reads and re-validates the live set inside its transaction.
+- Apply uses a fail-fast transaction advisory lock, a 5-second database row-lock timeout, and Prisma transaction limits of 2 seconds `maxWait` / 15 seconds `timeout`.
+- At most 1,000 candidates are accepted. If either mode reports `BACKFILL_CANDIDATE_LIMIT_EXCEEDED`, stop and use a separately reviewed manual batching procedure; do not enlarge the `IN` update ad hoc.
+- Lock contention or malformed lock results fail with a stable safe error and zero updates.
+
 以下内容是待执行的运维步骤，不得声称已执行。先安排维护窗口并完成数据库备份；维护窗口内暂停会改变套餐状态的后台操作。
 
 将 `PLAN_EXPIRY_BACKFILL_AT` 设置为同一个固定 UTC 时间戳，且必须使用严格毫秒格式（例如 `2026-08-09T00:00:00.000Z`），并在以下三步中保持不变。偏移时区、缺少 `Z` 或缺少毫秒的值都会被拒绝。

@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const STRICT_UTC_MILLISECOND_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
+export const BACKFILL_CANDIDATE_LIMIT = 1000;
+const TRANSACTION_OPTIONS = { maxWait: 2000, timeout: 15000 };
 
 class BackfillError extends Error {
   constructor(code, message) {
@@ -33,10 +35,14 @@ export function calculateBackfillExpiry(timestamp) {
   return new Date(deploymentAt.getTime() + THIRTY_DAYS_MS);
 }
 
+export function compareCodeUnits(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function calculateCandidateDigest(candidates) {
   const canonical = [...candidates]
     .map(({ id, plan }) => ({ id, plan }))
-    .sort((a, b) => a.id.localeCompare(b.id) || a.plan.localeCompare(b.plan));
+    .sort((a, b) => compareCodeUnits(a.id, b.id) || compareCodeUnits(a.plan, b.plan));
   return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');
 }
 
@@ -106,7 +112,44 @@ function summarizeCandidates(candidates, validPaidPlanKeys) {
     }
     planCounts[candidate.plan] = (planCounts[candidate.plan] ?? 0) + 1;
   }
-  return Object.fromEntries(Object.entries(planCounts).sort(([a], [b]) => a.localeCompare(b)));
+  return Object.fromEntries(Object.entries(planCounts).sort(([a], [b]) => compareCodeUnits(a, b)));
+}
+
+function ensureCandidateLimit(candidates) {
+  if (!Array.isArray(candidates) || candidates.length > BACKFILL_CANDIDATE_LIMIT) {
+    fail('BACKFILL_CANDIDATE_LIMIT_EXCEEDED', 'Candidate limit exceeded; use a reviewed manual batching procedure.');
+  }
+}
+
+async function collectEvidence(reader, lockRows) {
+  const config = await reader.config.findUnique({ where: { key: 'pricing_plans' } });
+  const validPaidPlanKeys = parseAuthoritativePlans(config);
+  const candidates = lockRows
+    ? await reader.$queryRaw`
+      SELECT "id", "plan"
+      FROM "User"
+      WHERE "plan" <> 'free' AND "planExpiresAt" IS NULL
+      ORDER BY "id"
+      LIMIT 1001
+      FOR UPDATE
+    `
+    : await reader.$queryRaw`
+      SELECT "id", "plan"
+      FROM "User"
+      WHERE "plan" <> 'free' AND "planExpiresAt" IS NULL
+      ORDER BY "id"
+      LIMIT 1001
+    `;
+  ensureCandidateLimit(candidates);
+  return {
+    candidates,
+    planCounts: summarizeCandidates(candidates, validPaidPlanKeys),
+    digest: calculateCandidateDigest(candidates),
+  };
+}
+
+function isDatabaseLockTimeout(error) {
+  return error?.code === '55P03' || error?.meta?.code === '55P03';
 }
 
 function validateApplyExpectation(expectedCount, expectedDigest, actualCount, actualDigest) {
@@ -133,48 +176,49 @@ export async function runBackfill({
 }) {
   const expiresAt = calculateBackfillExpiry(timestamp);
 
-  return client.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(802411337)`;
-    const config = await tx.config.findUnique({ where: { key: 'pricing_plans' } });
-    const validPaidPlanKeys = parseAuthoritativePlans(config);
-    const candidates = await tx.$queryRaw`
-      SELECT "id", "plan"
-      FROM "User"
-      WHERE "plan" <> 'free' AND "planExpiresAt" IS NULL
-      ORDER BY "id"
-      FOR UPDATE
-    `;
-    const planCounts = summarizeCandidates(candidates, validPaidPlanKeys);
-    const digest = calculateCandidateDigest(candidates);
-    const candidateCount = candidates.length;
-
-    if (!apply) {
-      return {
-        candidates: candidateCount,
-        updated: 0,
-        planCounts,
-        digest,
-        expiresAt,
-      };
-    }
-
-    validateApplyExpectation(expectedCount, expectedDigest, candidateCount, digest);
-    const candidateIds = candidates.map(({ id }) => id);
-    const updateResult = await tx.user.updateMany({
-      where: { id: { in: candidateIds }, planExpiresAt: null },
-      data: { planExpiresAt: expiresAt },
-    });
-    if (updateResult.count !== expectedCount) {
-      fail('BACKFILL_UPDATE_COUNT_MISMATCH', 'Updated row count did not match expected count.');
-    }
+  if (!apply) {
+    const evidence = await collectEvidence(client, false);
     return {
-      candidates: candidateCount,
-      updated: updateResult.count,
-      planCounts,
-      digest,
+      candidates: evidence.candidates.length,
+      updated: 0,
+      planCounts: evidence.planCounts,
+      digest: evidence.digest,
       expiresAt,
     };
-  });
+  }
+
+  try {
+    return await client.$transaction(async (tx) => {
+      const lockResult = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(802411337) AS "locked"`;
+      if (!Array.isArray(lockResult) || lockResult.length !== 1 || lockResult[0]?.locked !== true) {
+        fail('BACKFILL_LOCK_UNAVAILABLE', 'Another backfill is active; retry after it finishes.');
+      }
+      await tx.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+      const evidence = await collectEvidence(tx, true);
+      const candidateCount = evidence.candidates.length;
+      validateApplyExpectation(expectedCount, expectedDigest, candidateCount, evidence.digest);
+      const candidateIds = evidence.candidates.map(({ id }) => id);
+      const updateResult = await tx.user.updateMany({
+        where: { id: { in: candidateIds }, planExpiresAt: null },
+        data: { planExpiresAt: expiresAt },
+      });
+      if (updateResult.count !== expectedCount) {
+        fail('BACKFILL_UPDATE_COUNT_MISMATCH', 'Updated row count did not match expected count.');
+      }
+      return {
+        candidates: candidateCount,
+        updated: updateResult.count,
+        planCounts: evidence.planCounts,
+        digest: evidence.digest,
+        expiresAt,
+      };
+    }, TRANSACTION_OPTIONS);
+  } catch (error) {
+    if (isDatabaseLockTimeout(error)) {
+      fail('BACKFILL_LOCK_TIMEOUT', 'Timed out while acquiring candidate row locks.');
+    }
+    throw error;
+  }
 }
 
 export function toSafeBackfillError(error) {
