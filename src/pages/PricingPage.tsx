@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Check, Zap, Crown, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { trackEvent } from '../lib/analytics';
-import { ONLINE_PAYMENT_MAINTENANCE_MESSAGE } from '../../shared/payment-maintenance';
+import {
+  isOnlinePlanCheckoutDisabled,
+  ONLINE_PAYMENT_MAINTENANCE_MESSAGE,
+} from '../../shared/payment-maintenance';
 
 interface PlanConfig {
   planKey: string;
@@ -50,7 +53,7 @@ export default function PricingPage() {
       logged_in: isLoggedIn,
     });
 
-    if (plan.price > 0) {
+    if (isOnlinePlanCheckoutDisabled(plan.planKey)) {
       trackEvent('payment_unavailable_click', { plan_key: plan.planKey, price: plan.price });
       return;
     }
@@ -79,7 +82,8 @@ export default function PricingPage() {
           <h1 className="text-4xl font-bold text-gray-900">简单透明的定价</h1>
           <p className="mt-3 text-gray-500">所有付费套餐有效期为 30 天</p>
           <p className="mt-2 text-sm text-gray-400">
-            单次购买固定增加所选套餐额度，不自动续费。有效期内再次购买将在当前剩余有效期后叠加 30 天；
+            单次购买固定增加所选套餐额度，不自动续费。付费有效期内只能再次购买同一套餐，
+            并在当前剩余有效期后叠加 30 天；更换套餐需等待当前付费套餐到期。
             到期后未使用额度清零并恢复免费套餐。
           </p>
           <p
@@ -87,7 +91,7 @@ export default function PricingPage() {
             role="status"
             className="mx-auto mt-5 max-w-md rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
           >
-            {ONLINE_PAYMENT_MAINTENANCE_MESSAGE}
+            {ONLINE_PAYMENT_MAINTENANCE_MESSAGE}。可使用兑换码或由管理员发放套餐。
           </p>
         </div>
         <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -136,11 +140,11 @@ export default function PricingPage() {
                   </div>
                   <button
                     onClick={() => handlePlanClick(plan)}
-                    disabled={plan.price > 0}
-                    aria-describedby={plan.price > 0 ? 'payment-maintenance-status' : undefined}
-                    title={plan.price > 0 ? ONLINE_PAYMENT_MAINTENANCE_MESSAGE : undefined}
+                    disabled={isOnlinePlanCheckoutDisabled(plan.planKey)}
+                    aria-describedby={isOnlinePlanCheckoutDisabled(plan.planKey) ? 'payment-maintenance-status' : undefined}
+                    title={isOnlinePlanCheckoutDisabled(plan.planKey) ? ONLINE_PAYMENT_MAINTENANCE_MESSAGE : undefined}
                     className={`w-full rounded-xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] ${
-                      plan.price > 0
+                      isOnlinePlanCheckoutDisabled(plan.planKey)
                         ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-500 shadow-none'
                         : plan.popular
                         ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md shadow-primary-200 hover:shadow-lg'

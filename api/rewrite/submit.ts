@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: `文本太短，请至少输入${limits.minChars}个字符` });
   }
   if (charCount > limits.maxChars) {
-    return res.status(400).json({ error: `当前套餐单次最多${limits.maxChars}字，请精简后重试或升级套餐` });
+    return res.status(400).json({ error: `当前套餐单次最多${limits.maxChars}字，请精简后重试` });
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   if (!result) {
-    return res.status(403).json({ error: '额度不足，请前往定价页面购买' });
+    return res.status(403).json({ error: '额度不足。当前在线支付维护中，可使用兑换码或由管理员发放套餐' });
   }
 
   return res.status(200).json({

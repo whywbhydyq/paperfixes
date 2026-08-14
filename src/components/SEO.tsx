@@ -52,7 +52,7 @@ const routeSeo: Record<string, SeoConfig> = {
   },
   '/pricing': {
     title: 'PaperFix 定价 - AI论文降重与学术表达优化套餐',
-    description: '查看 PaperFix 学术表达优化套餐价格，支持免费体验、基础套餐和专业套餐。按需购买改写额度，处理失败自动退还。',
+    description: '查看 PaperFix 学术表达优化套餐说明，支持免费体验、基础套餐和专业套餐。当前在线支付维护中，可使用兑换码或由管理员发放套餐。',
     path: '/pricing',
     jsonLd: [organizationJsonLd, softwareJsonLd],
   },

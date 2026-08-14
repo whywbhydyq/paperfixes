@@ -1,4 +1,8 @@
+export const ONLINE_PAYMENT_AVAILABLE = false;
 export const ONLINE_PAYMENT_MAINTENANCE_MESSAGE = '在线支付维护中，暂不可购买';
 export const ONLINE_PAYMENT_UNAVAILABLE_CODE = 'PAYMENT_UNAVAILABLE';
 export const RETIRED_PAYMENT_PROVIDER_CODE = 'PAYMENT_PROVIDER_RETIRED';
 
+export function isOnlinePlanCheckoutDisabled(planKey: string) {
+  return !ONLINE_PAYMENT_AVAILABLE && planKey !== 'free';
+}

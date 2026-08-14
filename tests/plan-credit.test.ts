@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { applyPlanCredit } from '../api/_lib/plan-credit';
+import {
+  applyPlanCredit,
+  PLAN_CHANGE_REQUIRES_EXPIRY_CODE,
+} from '../api/_lib/plan-credit';
 
 it('locks the user row before calculating a shared plan entitlement', async () => {
   const events: string[] = [];
@@ -47,4 +50,72 @@ it('requires the row-lock capability instead of silently skipping it', () => {
   expect(source).not.toContain("Partial<Pick<Prisma.TransactionClient, '$queryRaw'>>");
   expect(source).not.toContain('if (tx.$queryRaw)');
   expect(source).toMatch(/await tx\.\$queryRaw`SELECT[\s\S]+FOR UPDATE`/);
+});
+
+it('rejects a cross-plan grant while the current paid plan is active', async () => {
+  const tx = {
+    $queryRaw: vi.fn(async () => [{ id: 'u1' }]),
+    user: {
+      findUnique: vi.fn(async () => ({
+        id: 'u1', plan: 'pro', quota: 17,
+        planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
+      })),
+      update: vi.fn(),
+    },
+    topup: { create: vi.fn() },
+  };
+
+  await expect(applyPlanCredit(tx as never, {
+    userId: 'u1', planKey: 'basic', quota: 50, price: 29,
+    note: 'cross plan', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+  })).rejects.toThrow(PLAN_CHANGE_REQUIRES_EXPIRY_CODE);
+
+  expect(tx.$queryRaw).toHaveBeenCalledOnce();
+  expect(tx.user.update).not.toHaveBeenCalled();
+  expect(tx.topup.create).not.toHaveBeenCalled();
+});
+
+it('allows another fixed grant of the same active plan', async () => {
+  const update = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+    id: 'u1', plan: data.plan, quota: 57, planExpiresAt: data.planExpiresAt,
+  }));
+  const tx = {
+    $queryRaw: vi.fn(async () => [{ id: 'u1' }]),
+    user: {
+      findUnique: vi.fn(async () => ({
+        id: 'u1', plan: 'basic', quota: 7,
+        planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
+      })),
+      update,
+    },
+    topup: { create: vi.fn(async () => ({})) },
+  };
+
+  const result = await applyPlanCredit(tx as never, {
+    userId: 'u1', planKey: 'basic', quota: 50, price: 29,
+    note: 'same plan', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+  });
+
+  expect(result.planExpiresAt.toISOString()).toBe('2026-09-19T00:00:00.000Z');
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({
+    data: expect.objectContaining({ quota: { increment: 50 }, plan: 'basic' }),
+  }));
+});
+
+it('does not let an unresolved legacy paid plan bypass the cross-plan rule', async () => {
+  const tx = {
+    $queryRaw: vi.fn(async () => [{ id: 'u1' }]),
+    user: {
+      findUnique: vi.fn(async () => ({
+        id: 'u1', plan: 'pro', quota: 17, planExpiresAt: null,
+      })),
+      update: vi.fn(),
+    },
+    topup: { create: vi.fn() },
+  };
+
+  await expect(applyPlanCredit(tx as never, {
+    userId: 'u1', planKey: 'basic', quota: 50, price: 29,
+    note: 'legacy cross plan', effectiveAt: new Date('2026-08-10T00:00:00.000Z'),
+  })).rejects.toThrow(PLAN_CHANGE_REQUIRES_EXPIRY_CODE);
 });

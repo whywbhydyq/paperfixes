@@ -102,9 +102,9 @@ export default function ReducePage() {
     setError('');
     if (!text.trim()) { setError('先粘贴一段需要优化的论文文本，或点击“试用示例文本”。'); trackEvent('rewrite_submit_blocked', { reason: 'empty' }); return; }
     if (charCount < MIN_CHARS) { setError(`文本有点短，请至少输入 ${MIN_CHARS} 个有效字符。`); trackEvent('rewrite_submit_blocked', { reason: 'too_short', char_count: charCount }); return; }
-    if (isOverLimit) { setError(`当前套餐单次最多 ${MAX_CHARS} 字，请精简文本或升级套餐。`); trackEvent('rewrite_submit_blocked', { reason: 'too_long', char_count: charCount, max_chars: MAX_CHARS }); return; }
+    if (isOverLimit) { setError(`当前套餐单次最多 ${MAX_CHARS} 字，请精简文本。`); trackEvent('rewrite_submit_blocked', { reason: 'too_long', char_count: charCount, max_chars: MAX_CHARS }); return; }
     if (!isLoggedIn) { trackEvent('free_trial_click', { source: 'rewrite_submit', char_count: charCount }); openLoginModal(); return; }
-    if ((user?.quota ?? 0) <= 0) { setError('你的免费额度已用完，可以前往定价页购买更多改写额度。'); trackEvent('quota_exhausted', { source: 'rewrite_submit', plan: user?.plan || 'unknown', total_used: user?.totalUsed ?? 0 }); return; }
+    if ((user?.quota ?? 0) <= 0) { setError('额度已用完。当前在线支付维护中，可使用兑换码或由管理员发放套餐。'); trackEvent('quota_exhausted', { source: 'rewrite_submit', plan: user?.plan || 'unknown', total_used: user?.totalUsed ?? 0 }); return; }
     trackEvent((user?.totalUsed ?? 0) === 0 ? 'first_submit' : 'rewrite_submit', { char_count: charCount, plan: user?.plan || 'unknown', quota_before: user?.quota ?? 0 });
     setSubmitting(true);
     try {

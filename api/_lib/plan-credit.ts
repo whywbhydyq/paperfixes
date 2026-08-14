@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import { calculateExtendedExpiry } from './plan-entitlements.js';
 
+export const PLAN_CHANGE_REQUIRES_EXPIRY_CODE = 'PLAN_CHANGE_REQUIRES_EXPIRY';
+
 export type PlanCreditTransaction = Pick<
   Prisma.TransactionClient,
   'user' | 'topup' | '$queryRaw'
@@ -34,10 +36,17 @@ export async function applyPlanCredit(
   const user = await tx.user.findUnique({ where: { id: input.userId } });
   if (!user) throw new Error('USER_NOT_FOUND');
 
-  const planExpiresAt = calculateExtendedExpiry(input.effectiveAt, user.planExpiresAt);
+  const currentPaidPlanIsActive = user.plan !== 'free'
+    && (user.planExpiresAt === null || user.planExpiresAt > input.effectiveAt);
+  if (currentPaidPlanIsActive && user.plan !== input.planKey) {
+    throw new Error(PLAN_CHANGE_REQUIRES_EXPIRY_CODE);
+  }
+
   const expiredPaidPlan = user.plan !== 'free'
     && user.planExpiresAt !== null
     && user.planExpiresAt <= input.effectiveAt;
+  const expiryBase = currentPaidPlanIsActive ? user.planExpiresAt : null;
+  const planExpiresAt = calculateExtendedExpiry(input.effectiveAt, expiryBase);
 
   const updatedUser = await tx.user.update({
     where: { id: user.id },

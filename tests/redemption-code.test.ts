@@ -158,7 +158,7 @@ function createBarrierRedemptionClient() {
   const state = {
     codes: new Map(codeFixtures.map((code) => [code.id, clone(code)])),
     user: {
-      id: 'u1', plan: 'pro', quota: 7,
+      id: 'u1', plan: 'basic', quota: 7,
       planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
     },
     topups: [] as Array<Record<string, unknown>>,
@@ -308,7 +308,7 @@ describe('one-time plan redemption', () => {
   it('credits once and stacks 30 days after an active plan expiry', async () => {
     const client = createRedemptionClient({
       users: [{
-        id: 'u1', plan: 'pro', quota: 7,
+        id: 'u1', plan: 'basic', quota: 7,
         planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
       }],
     });
@@ -375,6 +375,21 @@ describe('one-time plan redemption', () => {
       .rejects.toThrow('REDEMPTION_CODE_USED');
     expect(client.state.users.get('u2')?.quota).toBe(3);
     expect(client.state.topups).toHaveLength(1);
+  });
+
+  it('rolls back the code claim when it would change an active paid plan', async () => {
+    const client = createRedemptionClient({
+      users: [{
+        id: 'u1', plan: 'pro', quota: 19,
+        planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
+      }],
+    });
+
+    await expect(redeemPlanCode({ userId: 'u1', code: displayCode, redeemedAt: now }, client))
+      .rejects.toThrow('PLAN_CHANGE_REQUIRES_EXPIRY');
+    expect(client.state.code.redeemedAt).toBeNull();
+    expect(client.state.users.get('u1')).toMatchObject({ plan: 'pro', quota: 19 });
+    expect(client.state.topups).toHaveLength(0);
   });
 
   it('rejects expired codes without claiming or crediting them', async () => {

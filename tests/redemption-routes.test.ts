@@ -130,6 +130,22 @@ describe('POST /api/user?action=redeem', () => {
     expect(state.body).toMatchObject({ success: false });
     expect(JSON.stringify(state.body)).not.toContain(message);
   });
+
+  it('returns a stable conflict when redemption would change an active paid plan', async () => {
+    mocks.redeemPlanCode.mockRejectedValue(new Error('PLAN_CHANGE_REQUIRES_EXPIRY'));
+    const { response, state } = responseRecorder();
+
+    await userHandler({
+      method: 'POST', query: { action: 'redeem' },
+      body: { code: 'PF-ABCDE-FGHJK-LMNPQ-RSTUV' }, headers: {},
+    } as never, response as never);
+
+    expect(state.status).toBe(409);
+    expect(state.body).toMatchObject({
+      success: false,
+      code: 'PLAN_CHANGE_REQUIRES_EXPIRY',
+    });
+  });
 });
 
 describe('admin redemption-code resource', () => {

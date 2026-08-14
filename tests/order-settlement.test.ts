@@ -42,7 +42,7 @@ it('credits once and extends from the current remaining expiry', async () => {
       id: 'o1', userId: 'u1', status: 'PENDING', amount: 29, quota: 50, planKey: 'basic',
     },
     user: {
-      id: 'u1', plan: 'pro', quota: 7,
+      id: 'u1', plan: 'basic', quota: 7,
       planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
     },
   });
@@ -60,6 +60,24 @@ it('rejects an amount mismatch without changing state', async () => {
   }, client)).rejects.toThrow('PAYMENT_AMOUNT_MISMATCH');
   expect(client.state.order.status).toBe('PENDING');
   expect(client.state.user.quota).toBe(pendingFixture.user.quota);
+  expect(client.state.topups).toHaveLength(0);
+});
+
+it('rolls back a paid-order claim when it tries to change an active plan', async () => {
+  const client = createSettlementClient({
+    order: {
+      id: 'o1', userId: 'u1', status: 'PENDING', amount: 29, quota: 50, planKey: 'basic',
+    },
+    user: {
+      id: 'u1', plan: 'pro', quota: 19,
+      planExpiresAt: new Date('2026-08-20T00:00:00.000Z'),
+    },
+  });
+
+  await expect(finalizePaidOrder(validInput, client))
+    .rejects.toThrow('PLAN_CHANGE_REQUIRES_EXPIRY');
+  expect(client.state.order.status).toBe('PENDING');
+  expect(client.state.user).toMatchObject({ plan: 'pro', quota: 19 });
   expect(client.state.topups).toHaveLength(0);
 });
 

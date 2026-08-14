@@ -216,7 +216,7 @@ export default function DashboardPage() {
           <Link to="/pricing" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm transition-all hover:border-amber-100 hover:shadow-md">
             <div className="flex items-center gap-3">
               <Zap size={18} className="text-amber-600" />
-              <span className="font-medium text-gray-900">购买额度</span>
+              <span className="font-medium text-gray-900">套餐说明与兑换码</span>
             </div>
             <ArrowRight size={16} className="text-gray-400" />
           </Link>
@@ -343,7 +343,7 @@ export default function DashboardPage() {
                 <div className="text-center py-12 text-gray-400 rounded-2xl border border-dashed border-gray-200">
                   <Receipt size={32} className="mx-auto mb-3 text-gray-300" />
                   <p className="text-sm">暂无充值记录</p>
-                  <Link to="/pricing" className="mt-3 inline-block text-sm text-primary-600 hover:underline">去购买额度</Link>
+                  <Link to="/pricing" className="mt-3 inline-block text-sm text-primary-600 hover:underline">查看套餐说明与兑换码</Link>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">

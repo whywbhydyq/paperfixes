@@ -3,11 +3,14 @@ import prisma from '../_lib/prisma.js';
 import { getUserFromRequest } from '../_lib/auth.js';
 import { isAdminUser } from '../_lib/constants.js';
 import {
-  calculateExtendedExpiry,
   expireAllDuePlans,
 } from '../_lib/plan-entitlements.js';
 import { rejectCrossOriginMutation } from '../_lib/http-security.js';
 import { createRedemptionCodes } from '../_lib/redemption-code.js';
+import {
+  applyPlanCredit,
+  PLAN_CHANGE_REQUIRES_EXPIRY_CODE,
+} from '../_lib/plan-credit.js';
 
 interface PlanConfig {
   planKey: string;
@@ -180,20 +183,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const targetId = url.searchParams.get('id');
       if (!targetId) return res.status(400).json({ error: '缺少用户 ID' });
       const { quota, plan, role } = req.body || {};
-      const data: Record<string, unknown> = {};
-      if (typeof quota === 'number') data.quota = quota;
-      if (typeof plan === 'string') {
-        data.plan = plan;
-        if (plan === 'free') {
-          data.planExpiresAt = null;
-        } else {
-          const current = await prisma.user.findUnique({ where: { id: targetId } });
-          if (!current) return res.status(404).json({ error: '用户不存在' });
-          if (!current.planExpiresAt || current.planExpiresAt <= new Date()) {
-            data.planExpiresAt = calculateExtendedExpiry(new Date(), null);
-          }
-        }
+      if (quota !== undefined || plan !== undefined) {
+        return res.status(400).json({
+          error: '套餐与额度只能通过一次性套餐发放变更',
+          code: 'DIRECT_ENTITLEMENT_EDIT_DISABLED',
+        });
       }
+      const data: Record<string, unknown> = {};
       if (typeof role === 'string') data.role = role;
       const updated = await prisma.user.update({
         where: { id: targetId },
@@ -214,29 +210,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const auth = await checkAdmin(req);
     if (!auth.ok) return res.status(403).json({ error: '无权限' });
 
-    const { userId, amount, price, planKey, note } = req.body || {};
-    if (!userId || typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).json({ error: '参数错误' });
+    const { userId, planKey, note, amount, quota, price } = req.body || {};
+    if (amount !== undefined || quota !== undefined || price !== undefined) {
+      return res.status(400).json({
+        error: '额度与价格必须使用服务端套餐配置',
+        code: 'PLAN_GRANT_FIELDS_FORBIDDEN',
+      });
+    }
+    if (typeof userId !== 'string' || typeof planKey !== 'string') {
+      return res.status(400).json({ error: '参数错误', code: 'PLAN_GRANT_INVALID' });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const topup = await tx.topup.create({
-        data: {
-          userId, amount,
-          price: price || 0,
-          planKey: planKey || 'manual',
-          note: note || '管理员手动充值',
-        },
-      });
-      const user = await tx.user.update({
-        where: { id: userId },
-        data: { quota: { increment: amount } },
-        select: { id: true, email: true, phone: true, quota: true },
-      });
-      return { topup, user };
-    });
+    const plans = await ensureDefaultConfig();
+    const plan = plans.find((candidate) =>
+      candidate.planKey === planKey && candidate.active && candidate.planKey !== 'free'
+    );
+    if (!plan) {
+      return res.status(400).json({ error: '套餐不存在或已停用', code: 'PLAN_GRANT_INVALID' });
+    }
 
-    return res.status(200).json(result);
+    try {
+      const creditedUser = await prisma.$transaction((tx) => applyPlanCredit(tx, {
+        userId,
+        planKey: plan.planKey,
+        quota: plan.quota,
+        price: plan.price,
+        note: typeof note === 'string' && note.trim() ? note.trim() : '管理员发放一次性套餐',
+        effectiveAt: new Date(),
+      }));
+      return res.status(200).json({
+        plan: {
+          planKey: plan.planKey,
+          name: plan.name,
+          quota: plan.quota,
+          price: plan.price,
+        },
+        user: creditedUser,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === PLAN_CHANGE_REQUIRES_EXPIRY_CODE) {
+        return res.status(409).json({
+          error: '当前付费套餐有效期内只能再次发放同一套餐',
+          code: PLAN_CHANGE_REQUIRES_EXPIRY_CODE,
+        });
+      }
+      throw error;
+    }
   }
 
   // ===== /api/admin?resource=redemption-codes =====

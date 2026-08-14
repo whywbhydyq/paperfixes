@@ -5,6 +5,7 @@ import { getUserFromRequest } from '../_lib/auth.js';
 import { enforcePlanExpiry } from '../_lib/plan-entitlements.js';
 import { rejectCrossOriginMutation } from '../_lib/http-security.js';
 import { redeemPlanCode } from '../_lib/redemption-code.js';
+import { PLAN_CHANGE_REQUIRES_EXPIRY_CODE } from '../_lib/plan-credit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && rejectCrossOriginMutation(req, res)) return;
@@ -87,6 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (message === 'REDEMPTION_CODE_EXPIRED') {
         return res.status(410).json({ success: false, error: '兑换码已过期' });
+      }
+      if (message === PLAN_CHANGE_REQUIRES_EXPIRY_CODE) {
+        return res.status(409).json({
+          success: false,
+          error: '当前付费套餐有效期内只能兑换同一套餐',
+          code: PLAN_CHANGE_REQUIRES_EXPIRY_CODE,
+        });
       }
       throw error;
     }

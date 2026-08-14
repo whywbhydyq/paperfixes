@@ -6,7 +6,8 @@
 - Back up PostgreSQL.
 - Record counts for User, Job, Order, and Topup.
 - Confirm `JWT_SECRET`, `SMS_CODE_SECRET`, `ALIYUN_ACCESS_KEY_ID`,
-  `ALIYUN_ACCESS_KEY_SECRET`, `EPAY_PID`, `EPAY_KEY`, `EPAY_API`, and `SITE_URL`.
+  `ALIYUN_ACCESS_KEY_SECRET`, and `SITE_URL`.
+- EPAY 已退役；不要恢复或配置 `EPAY_PID`、`EPAY_KEY`、`EPAY_API`。
 
 ## 2. Additive migration
 
@@ -16,7 +17,9 @@ Inspect the migration first and confirm it contains no `DROP`, `DELETE`, or `TRU
 
 ## 3. Legacy plan dry-run and apply
 
-Set `PLAN_EXPIRY_BACKFILL_AT` once to the fixed UTC deployment timestamp.
+将 `PLAN_EXPIRY_BACKFILL_AT` 设置为同一个固定 UTC 时间戳，并在以下三步中保持不变。
+
+执行顺序必须为 `dry-run → apply → dry-run=0`：
 
 Run `npm.cmd run db:backfill-plan-expiry` and record candidates.
 

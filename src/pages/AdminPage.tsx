@@ -31,14 +31,12 @@ export default function AdminPage() {
   const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<{ quota: number; plan: string; role: string }>({
-    quota: 0, plan: 'free', role: 'user',
-  });
+  const [editData, setEditData] = useState<{ role: string }>({ role: 'user' });
   const [saveMsg, setSaveMsg] = useState('');
 
-  // 手动充值弹窗
+  // 一次性套餐发放弹窗
   const [topupUserId, setTopupUserId] = useState<string | null>(null);
-  const [topupAmount, setTopupAmount] = useState(10);
+  const [topupPlanKey, setTopupPlanKey] = useState('');
   const [topupNote, setTopupNote] = useState('');
   const [topupLoading, setTopupLoading] = useState(false);
 
@@ -65,7 +63,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isLoggedIn) { openLoginModal(); return; }
     if (!isAdmin) return;
-    if (tab === 'users') loadUsers();
+    if (tab === 'users') {
+      loadUsers();
+      loadPlans();
+    }
     else loadPlans();
   }, [tab, isLoggedIn, isAdmin, loadUsers, loadPlans, openLoginModal]);
 
@@ -110,27 +111,25 @@ export default function AdminPage() {
   };
 
   const handleTopup = async () => {
-    if (!topupUserId || topupAmount <= 0) return;
+    if (!topupUserId || !topupPlanKey) return;
     setTopupLoading(true);
     try {
       await apiFetch('/api/admin?resource=topup', {
         method: 'POST',
         body: JSON.stringify({
           userId: topupUserId,
-          amount: topupAmount,
-          price: 0,
-          planKey: 'manual',
-          note: topupNote || '管理员手动充值',
+          planKey: topupPlanKey,
+          note: topupNote || '管理员发放一次性套餐',
         }),
       });
       setTopupUserId(null);
-      setTopupAmount(10);
+      setTopupPlanKey('');
       setTopupNote('');
       loadUsers();
-      setSaveMsg(`成功充值 ${topupAmount} 次`);
+      setSaveMsg('一次性套餐发放成功');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : '充值失败');
+      alert(e instanceof Error ? e.message : '套餐发放失败');
     } finally {
       setTopupLoading(false);
     }
@@ -150,7 +149,7 @@ export default function AdminPage() {
 
   const startEditUser = (u: UserInfo) => {
     setEditingUserId(u.id);
-    setEditData({ quota: u.quota, plan: u.plan, role: u.role });
+    setEditData({ role: u.role });
   };
 
   return (
@@ -187,24 +186,32 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* 充值弹窗 */}
+        {/* 一次性套餐发放弹窗 */}
         {topupUserId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/30" onClick={() => setTopupUserId(null)} />
             <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-              <h3 className="mb-4 text-lg font-semibold text-gray-900">手动充值</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">人工发放一次性套餐</h3>
+              <p className="mb-4 text-xs leading-5 text-gray-500">额度、价格与 30 天有效期均来自服务端套餐配置。付费有效期内只能发放同一套餐。</p>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-sm text-gray-600">充值次数</label>
-                  <input type="number" value={topupAmount} min={1}
-                    onChange={(e) => setTopupAmount(parseInt(e.target.value) || 0)}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
+                  <label className="mb-1 block text-sm text-gray-600">选择套餐</label>
+                  <select value={topupPlanKey}
+                    onChange={(e) => setTopupPlanKey(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100">
+                    <option value="">请选择启用的付费套餐</option>
+                    {plans.filter((plan) => plan.active && plan.planKey !== 'free').map((plan) => (
+                      <option key={plan.planKey} value={plan.planKey}>
+                        {plan.name} · {plan.quota} 次 · ¥{plan.price} · 30 天
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">备注</label>
                   <input type="text" value={topupNote}
                     onChange={(e) => setTopupNote(e.target.value)}
-                    placeholder="管理员手动充值"
+                    placeholder="管理员发放一次性套餐"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100" />
                 </div>
                 <div className="flex gap-2">
@@ -212,9 +219,9 @@ export default function AdminPage() {
                     className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
                     取消
                   </button>
-                  <button onClick={handleTopup} disabled={topupLoading || topupAmount <= 0}
+                  <button onClick={handleTopup} disabled={topupLoading || !topupPlanKey}
                     className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
-                    {topupLoading ? '充值中...' : `确认充值 ${topupAmount} 次`}
+                    {topupLoading ? '发放中...' : '确认发放套餐'}
                   </button>
                 </div>
               </div>
@@ -275,28 +282,12 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {editingUserId === u.id ? (
-                            <select value={editData.plan}
-                              onChange={(e) => setEditData({ ...editData, plan: e.target.value })}
-                              className="rounded border px-2 py-1 text-xs">
-                              <option value="free">免费</option>
-                              <option value="basic">基础</option>
-                              <option value="pro">专业</option>
-                            </select>
-                          ) : (
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.plan === 'pro' ? 'bg-amber-100 text-amber-700' : u.plan === 'basic' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
-                              {u.plan === 'pro' ? '专业' : u.plan === 'basic' ? '基础' : '免费'}
-                            </span>
-                          )}
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${u.plan === 'pro' ? 'bg-amber-100 text-amber-700' : u.plan === 'basic' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {u.plan === 'pro' ? '专业' : u.plan === 'basic' ? '基础' : '免费'}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {editingUserId === u.id ? (
-                            <input type="number" value={editData.quota}
-                              onChange={(e) => setEditData({ ...editData, quota: parseInt(e.target.value) || 0 })}
-                              className="w-16 rounded border px-2 py-1 text-center text-xs" />
-                          ) : (
-                            <span className="font-medium text-primary-600">{u.quota}</span>
-                          )}
+                          <span className="font-medium text-primary-600">{u.quota}</span>
                         </td>
                         <td className="px-4 py-3 text-center text-gray-600">{u.totalUsed}</td>
                         <td className="px-4 py-3 text-gray-400 text-xs">
@@ -322,9 +313,9 @@ export default function AdminPage() {
                                 <Edit3 size={15} />
                               </button>
                               <button
-                                onClick={() => { setTopupUserId(u.id); setTopupAmount(10); setTopupNote(''); }}
+                                onClick={() => { setTopupUserId(u.id); setTopupPlanKey(''); setTopupNote(''); }}
                                 className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600"
-                                title="手动充值">
+                                title="发放一次性套餐">
                                 <Plus size={15} />
                               </button>
                             </div>

@@ -130,7 +130,7 @@ describe('online payment maintenance mode', () => {
     const pricing = readFileSync('src/pages/PricingPage.tsx', 'utf8');
 
     expect(pricing).toContain('ONLINE_PAYMENT_MAINTENANCE_MESSAGE');
-    expect(pricing).toContain('disabled={plan.price > 0}');
+    expect(pricing).toContain('disabled={isOnlinePlanCheckoutDisabled(plan.planKey)}');
     expect(pricing).not.toContain("import PaymentModal from '../components/PaymentModal'");
     expect(pricing).not.toContain('<PaymentModal');
     expect(pricing).not.toContain('createPaymentOrder');
