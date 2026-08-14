@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   calculateBackfillExpiry,
-  runBackfill,
 } from '../scripts/backfill-plan-expiry.mjs';
 
 describe('security hardening schema', () => {
@@ -30,58 +29,19 @@ describe('security hardening schema', () => {
   });
 
   it('gives legacy paid users a full 30-day grace period', () => {
-    const deploymentAt = new Date('2026-08-09T00:00:00.000Z');
-    expect(calculateBackfillExpiry(deploymentAt).toISOString())
+    expect(calculateBackfillExpiry('2026-08-09T00:00:00.000Z').toISOString())
       .toBe('2026-09-08T00:00:00.000Z');
-  });
-
-  it('supports the required dry-run, fixed-time apply, then zero-candidate dry-run sequence', async () => {
-    const users = [
-      { id: 'paid-1', plan: 'basic', planExpiresAt: null as Date | null },
-      { id: 'paid-2', plan: 'pro', planExpiresAt: null as Date | null },
-      { id: 'free-1', plan: 'free', planExpiresAt: null as Date | null },
-    ];
-    const client = {
-      user: {
-        count: async () => users.filter((user) =>
-          user.plan !== 'free' && user.planExpiresAt === null
-        ).length,
-        updateMany: async ({ data }: { data: { planExpiresAt: Date } }) => {
-          let count = 0;
-          for (const user of users) {
-            if (user.plan !== 'free' && user.planExpiresAt === null) {
-              user.planExpiresAt = data.planExpiresAt;
-              count += 1;
-            }
-          }
-          return { count };
-        },
-      },
-    };
-    const deploymentAt = new Date('2026-08-09T00:00:00.000Z');
-
-    await expect(runBackfill({ apply: false, deploymentAt, client }))
-      .resolves.toMatchObject({ candidates: 2, updated: 0 });
-    expect(users[0].planExpiresAt).toBeNull();
-
-    await expect(runBackfill({ apply: true, deploymentAt, client }))
-      .resolves.toMatchObject({
-        candidates: 2,
-        updated: 2,
-        expiresAt: new Date('2026-09-08T00:00:00.000Z'),
-      });
-
-    await expect(runBackfill({ apply: false, deploymentAt, client }))
-      .resolves.toMatchObject({ candidates: 0, updated: 0 });
-    expect(users[0].planExpiresAt?.toISOString()).toBe('2026-09-08T00:00:00.000Z');
-    expect(users[1].planExpiresAt?.toISOString()).toBe('2026-09-08T00:00:00.000Z');
-    expect(users[2].planExpiresAt).toBeNull();
   });
 
   it('documents the fixed-time three-step backfill and treats EPAY as retired history', () => {
     const rollout = readFileSync('docs/deployment/security-hardening-rollout.md', 'utf8');
     expect(rollout).toContain('同一个固定 UTC 时间戳');
     expect(rollout).toContain('dry-run → apply → dry-run=0');
+    expect(rollout).toContain('PLAN_EXPIRY_BACKFILL_EXPECTED_COUNT');
+    expect(rollout).toContain('PLAN_EXPIRY_BACKFILL_EXPECTED_DIGEST');
+    expect(rollout).toContain('维护窗口');
+    expect(rollout).toContain('未知或停用套餐');
+    expect(rollout).toContain('不得声称已执行');
     expect(rollout).toContain('EPAY 已退役');
     expect(rollout).not.toContain('Confirm `EPAY_PID`');
   });

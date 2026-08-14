@@ -17,15 +17,21 @@ Inspect the migration first and confirm it contains no `DROP`, `DELETE`, or `TRU
 
 ## 3. Legacy plan dry-run and apply
 
-将 `PLAN_EXPIRY_BACKFILL_AT` 设置为同一个固定 UTC 时间戳，并在以下三步中保持不变。
+以下内容是待执行的运维步骤，不得声称已执行。先安排维护窗口并完成数据库备份；维护窗口内暂停会改变套餐状态的后台操作。
+
+将 `PLAN_EXPIRY_BACKFILL_AT` 设置为同一个固定 UTC 时间戳，且必须使用严格毫秒格式（例如 `2026-08-09T00:00:00.000Z`），并在以下三步中保持不变。偏移时区、缺少 `Z` 或缺少毫秒的值都会被拒绝。
 
 执行顺序必须为 `dry-run → apply → dry-run=0`：
 
-Run `npm.cmd run db:backfill-plan-expiry` and record candidates.
+1. 运行 `npm.cmd run db:backfill-plan-expiry`。记录输出的 `candidates`、`digest`、`planCounts` 和 `expiresAt`；输出不包含用户 ID、手机号或连接信息。
+2. 检查 `planCounts`。发现未知或停用套餐、空套餐或异常 free 候选时立即停止，不得 apply；修正权威 `pricing_plans` 配置或数据后重新 dry-run。
+3. 保持同一个 `PLAN_EXPIRY_BACKFILL_AT`，设置：
+   - `PLAN_EXPIRY_BACKFILL_EXPECTED_COUNT` 为刚记录且大于 0 的 `candidates`；
+   - `PLAN_EXPIRY_BACKFILL_EXPECTED_DIGEST` 为刚记录的 SHA-256 `digest`。
+4. 运行 `npm.cmd run db:backfill-plan-expiry -- --apply`。实时 count 或 digest 与记录不一致时脚本会失败且不更新；成功时 `updated` 必须等于 expected count。
+5. 使用同一个固定时间再次运行 dry-run，确认 `candidates=0`。不得以 expected count 0 执行 apply。
 
-Run `npm.cmd run db:backfill-plan-expiry -- --apply` once and record updated rows.
-
-Run the dry-run again; candidates must be `0`.
+脚本在单个数据库事务中获取全局 advisory lock 和候选用户行锁，再读取、校验和更新；仍应保持维护窗口直到最终 dry-run 为 0。
 
 ## 4. Deploy
 
